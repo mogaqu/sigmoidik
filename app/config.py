@@ -130,7 +130,7 @@ LLM_PROVIDER_ORDER: List[str] = [
 # URL для текстовых моделей Pollinations
 POLLINATIONS_TEXT_BASE_URL = os.getenv(
     "POLLINATIONS_TEXT_BASE_URL", 
-    "https://text.pollinations.ai/openai"
+    "https://gen.pollinations.ai/v1/chat/completions"
 )
 
 # API ключ (токен) для Pollinations. Будет добавлен в поле 'token' в JSON.

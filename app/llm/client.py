@@ -805,14 +805,16 @@ def _send_pollinations_request(
         "temperature": POLLINATIONS_TEXT_TEMPERATURE,
     }
     
-    if POLLINATIONS_API_KEY:
-        payload["token"] = POLLINATIONS_API_KEY
-        log.debug("Using Pollinations API key in request payload (as 'token')")
-
     headers = {"Content-Type": "application/json"}
+    if POLLINATIONS_API_KEY:
+        headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
+        log.debug("Using Pollinations API key in Authorization header")
     
     try:
-        log.debug(f"Sending Pollinations request to {POLLINATIONS_TEXT_BASE_URL}")
+        log.info(f"Sending Pollinations request to {POLLINATIONS_TEXT_BASE_URL} with model {model_name}")
+        log.debug(f"Payload: {payload}")
+        log.debug(f"Headers: {headers}")
+        
         response = requests.post(
             POLLINATIONS_TEXT_BASE_URL,
             json=payload,
@@ -820,7 +822,7 @@ def _send_pollinations_request(
             timeout=POLLINATIONS_TEXT_TIMEOUT,
         )
         
-        log.debug(f"Pollinations response status: {response.status_code}")
+        log.info(f"Pollinations response status: {response.status_code}")
         
         if response.status_code in {429, 503}:
             log.warning(
@@ -834,17 +836,22 @@ def _send_pollinations_request(
         response.raise_for_status()
         
         data = response.json()
+        log.debug(f"Pollinations response data: {data}")
+        
         choices = data.get("choices") or []
         
         if not choices:
+            log.error(f"Pollinations response contains no choices. Full response: {data}")
             raise ValueError("Pollinations response contains no choices")
         
         message = choices[0].get("message") or {}
         reply_text = _openai_content_to_text(message.get("content"))
         
         if not reply_text:
+            log.error(f"Pollinations response has empty content. Message: {message}")
             raise ValueError("Pollinations response has empty content")
 
+        log.info(f"Successfully got response from Pollinations: {len(reply_text)} chars")
         return {
             "parts": [{"text": reply_text}],
             "reply_text": reply_text,
@@ -854,11 +861,13 @@ def _send_pollinations_request(
         }
         
     except requests.RequestException as exc:
-        log.warning("Pollinations request failed (model %s): %s", model_name, exc)
+        log.error(f"Pollinations request failed (model {model_name}): {exc}")
+        if hasattr(exc, 'response') and exc.response is not None:
+            log.error(f"Response status: {exc.response.status_code}, body: {exc.response.text[:500]}")
     except ValueError as exc:
-        log.warning("Pollinations response error (model %s): %s", model_name, exc)
+        log.error(f"Pollinations response error (model {model_name}): {exc}")
     except Exception as exc:
-        log.error("Unexpected Pollinations error (model %s): %s", model_name, exc)
+        log.error(f"Unexpected Pollinations error (model {model_name}): {exc}", exc_info=True)
     
     return None
 
