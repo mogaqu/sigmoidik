@@ -78,7 +78,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"/provider ({provider_hint}) – выбрать LLM\n"
         "/or_model – модель OpenRouter\n"
         "/air_model – модель Airforce\n"
-        "/poll_text – модель Pollinations\n"
+        "/poll_text – модель Pollinations (текст)\n"
+        "/draw_model – модель Pollinations (изображения)\n"
         "/msgsize " + html.escape("<s|m|l>") + " – размер ответа\n\n"
         "<b>Модерация (для групп):</b>\n"
         "/warn @user причина – предупреждение ⚠️\n"
@@ -312,7 +313,7 @@ async def generate_and_send_image(update: Update, context: ContextTypes.DEFAULT_
                 "Возможные причины:\n"
                 "• Превышен лимит запросов (429 Too Many Requests)\n"
                 "• Сервис временно недоступен\n"
-                "• Попробуйте позже или используйте другую модель через /set_draw_model"
+                "• Попробуйте позже или используйте другую модель через /draw_model"
             )
     except Exception as exc:
         log.exception(exc)
@@ -321,7 +322,7 @@ async def generate_and_send_image(update: Update, context: ContextTypes.DEFAULT_
             "Попробуйте:\n"
             "• Переформулировать запрос\n"
             "• Попробовать позже\n"
-            "• Выбрать другую модель через /set_draw_model"
+            "• Выбрать другую модель через /draw_model"
         )
 async def draw_image_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await ensure_user_profile(update)
@@ -348,7 +349,7 @@ async def set_draw_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(
             "Текущая модель Pollinations: <b>{current}</b>\n"
             "Доступные: {choices}\n"
-            "Команда: <code>/set_draw_model flux</code> или <code>/set_draw_model default</code> для сброса."
+            "Команда: <code>/draw_model flux</code> или <code>/draw_model default</code> для сброса."
             .format(current=html.escape(current), choices=", ".join(available)),
             parse_mode=ParseMode.HTML,
         )
