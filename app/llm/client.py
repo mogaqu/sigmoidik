@@ -954,8 +954,16 @@ def _send_airforce_request(
 
     log.info(f"Airforce: trying {len(AIRFORCE_API_KEYS)} keys for models: {models_to_iterate}")
 
+    max_total_attempts = 5  # Максимум 5 попыток всего
+    attempt_count = 0
+
     for model_name in models_to_iterate:
         for key_attempt in range(len(AIRFORCE_API_KEYS)):
+            if attempt_count >= max_total_attempts:
+                log.warning(f"Airforce: reached max attempts ({max_total_attempts}), switching to next provider")
+                break
+                
+            attempt_count += 1
             key_idx = (current_airforce_key_idx + key_attempt) % len(AIRFORCE_API_KEYS)
             api_key = AIRFORCE_API_KEYS[key_idx]
 
@@ -1047,8 +1055,12 @@ def _send_airforce_request(
             except ValueError as exc:
                 log.warning("Airforce response error (model %s): %s", model_name, exc)
                 continue
+        
+        # Если достигли лимита попыток, выходим из внешнего цикла тоже
+        if attempt_count >= max_total_attempts:
+            break
 
-    log.warning(f"Airforce: all {len(AIRFORCE_API_KEYS)} keys exhausted for all models, switching to next provider")
+    log.warning(f"Airforce: exhausted {attempt_count} attempts, switching to next provider")
     return None
 
 
