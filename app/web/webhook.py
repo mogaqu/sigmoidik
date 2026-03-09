@@ -2,12 +2,28 @@
 """Webhook support для Telegram бота на Render."""
 
 import asyncio
+import hmac
+import hashlib
 from typing import Optional
 
 from telegram import Update
 from telegram.ext import Application
 
 from app.logging_config import log
+from app import config
+
+def verify_webhook_signature(request_data: bytes, signature: Optional[str]) -> bool:
+    """Проверяет подпись webhook запроса"""
+    if not config.WEBHOOK_SECRET_TOKEN or not signature:
+        return False
+    
+    expected = hmac.new(
+        config.WEBHOOK_SECRET_TOKEN.encode(), 
+        request_data, 
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(signature, expected)
 
 
 async def setup_webhook(app: Application, webhook_url: str, port: int) -> bool:

@@ -3,23 +3,17 @@
 
 import time
 from typing import Dict, Tuple
-
+from app.storage.redis_store import redis_client
 from app.logging_config import log
 
-# Хранилище: {user_id: (timestamp, count)}
-_rate_limits: Dict[int, Tuple[float, int]] = {}
-
-# Хранилище для веб-запросов по IP: {ip: (timestamp, count)}
-_web_rate_limits: Dict[str, Tuple[float, int]] = {}
-
-# Хранилище для login попыток по IP: {ip: (timestamp, count)}
-_login_rate_limits: Dict[str, Tuple[float, int]] = {}
+# Redis ключи
+RATE_LIMIT_PREFIX = "rl:"
+WEB_RATE_LIMIT_PREFIX = "wrl:"
+LOGIN_RATE_LIMIT_PREFIX = "lrl:"
 
 # Настройки
 MAX_REQUESTS_PER_MINUTE = 10
 MAX_REQUESTS_PER_HOUR = 100
-CLEANUP_INTERVAL = 300  # Очистка каждые 5 минут
-_last_cleanup = time.time()
 
 # Настройки для веб-запросов
 WEB_MAX_REQUESTS_PER_MINUTE = 30
@@ -29,183 +23,109 @@ WEB_MAX_REQUESTS_PER_HOUR = 300
 LOGIN_MAX_ATTEMPTS_PER_MINUTE = 3
 LOGIN_MAX_ATTEMPTS_PER_HOUR = 10
 
-# Блокировка IP после множественных неудачных попыток
-_blocked_ips: dict[str, float] = {}
 BLOCK_DURATION_SEC = 3600  # 1 час блокировки
-
-
-def _cleanup_old_entries():
-    """Удаляет старые записи для экономии памяти."""
-    global _last_cleanup
-    now = time.time()
-    if now - _last_cleanup < CLEANUP_INTERVAL:
-        return
-    
-    cutoff = now - 3600  # Удаляем записи старше часа
-    to_remove = [uid for uid, (ts, _) in _rate_limits.items() if ts < cutoff]
-    for uid in to_remove:
-        del _rate_limits[uid]
-    
-    _last_cleanup = now
-    if to_remove:
-        log.debug(f"Cleaned up {len(to_remove)} old rate limit entries")
 
 
 def check_rate_limit(user_id: int) -> Tuple[bool, str]:
     """
-    Проверяет, не превышен ли лимит запросов.
-    
-    Returns:
-        (allowed, message): allowed=True если можно, message - причина отказа
+    Проверяет, не превышен ли лимит запросов через Redis.
     """
-    _cleanup_old_entries()
+    key = f"{RATE_LIMIT_PREFIX}{user_id}"
     
-    now = time.time()
-    
-    if user_id not in _rate_limits:
-        _rate_limits[user_id] = (now, 1)
+    try:
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, 3600)  # Сброс через час
+            
+        if count > MAX_REQUESTS_PER_HOUR:
+            return False, "⏱️ Превышен часовой лимит запросов."
+        
+        # Проверка минутного лимита через простой ключ с TTL
+        min_key = f"{key}:min"
+        min_count = redis_client.incr(min_key)
+        if min_count == 1:
+            redis_client.expire(min_key, 60)
+        
+        if min_count > MAX_REQUESTS_PER_MINUTE:
+            return False, "⏱️ Слишком много запросов. Подожди минуту."
+            
         return True, ""
-    
-    last_time, count = _rate_limits[user_id]
-    time_diff = now - last_time
-    
-    # Проверка минутного лимита
-    if time_diff < 60:
-        if count >= MAX_REQUESTS_PER_MINUTE:
-            wait_time = int(60 - time_diff)
-            return False, f"⏱️ Слишком много запросов. Подожди {wait_time} сек."
-        _rate_limits[user_id] = (last_time, count + 1)
-        return True, ""
-    
-    # Проверка часового лимита
-    if time_diff < 3600:
-        if count >= MAX_REQUESTS_PER_HOUR:
-            wait_time = int((3600 - time_diff) / 60)
-            return False, f"⏱️ Превышен часовой лимит. Подожди {wait_time} мин."
-        _rate_limits[user_id] = (last_time, count + 1)
-        return True, ""
-    
-    # Сброс счетчика после часа
-    _rate_limits[user_id] = (now, 1)
-    return True, ""
+    except Exception as e:
+        log.error(f"Redis rate limit error: {e}")
+        return True, ""  # Fail-open
 
 
 def get_user_stats(user_id: int) -> Dict[str, int]:
     """Возвращает статистику пользователя."""
-    if user_id not in _rate_limits:
-        return {"requests": 0, "time_window": 0}
-    
-    last_time, count = _rate_limits[user_id]
-    time_diff = int(time.time() - last_time)
-    
-    return {
-        "requests": count,
-        "time_window": time_diff,
-    }
-
-
-def _cleanup_web_entries():
-    """Удаляет старые записи веб rate limits."""
-    global _last_cleanup
-    now = time.time()
-    if now - _last_cleanup < CLEANUP_INTERVAL:
-        return
-    
-    cutoff = now - 3600
-    
-    # Очистка веб-лимитов
-    to_remove = [ip for ip, (ts, _) in _web_rate_limits.items() if ts < cutoff]
-    for ip in to_remove:
-        del _web_rate_limits[ip]
-    
-    # Очистка login-лимитов
-    to_remove = [ip for ip, (ts, _) in _login_rate_limits.items() if ts < cutoff]
-    for ip in to_remove:
-        del _login_rate_limits[ip]
+    key = f"{RATE_LIMIT_PREFIX}{user_id}"
+    try:
+        count = int(redis_client.get(key) or 0)
+        return {"requests": count}
+    except Exception as e:
+        log.error(f"Error getting stats: {e}")
+        return {"requests": 0}
 
 
 def check_web_rate_limit(ip_address: str) -> Tuple[bool, str]:
     """
-    Проверяет rate limit для веб-запросов по IP.
-    
-    Returns:
-        (allowed, message): allowed=True если можно, message - причина отказа
+    Проверяет rate limit для веб-запросов по IP через Redis.
     """
-    _cleanup_web_entries()
+    key = f"{WEB_RATE_LIMIT_PREFIX}{ip_address}"
     
-    now = time.time()
-    
-    if ip_address not in _web_rate_limits:
-        _web_rate_limits[ip_address] = (now, 1)
-        return True, ""
-    
-    last_time, count = _web_rate_limits[ip_address]
-    time_diff = now - last_time
-    
-    if time_diff < 60:
-        if count >= WEB_MAX_REQUESTS_PER_MINUTE:
+    try:
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, 3600)
+            
+        if count > WEB_MAX_REQUESTS_PER_HOUR:
+            return False, "Hourly limit exceeded."
+            
+        min_key = f"{key}:min"
+        min_count = redis_client.incr(min_key)
+        if min_count == 1:
+            redis_client.expire(min_key, 60)
+        
+        if min_count > WEB_MAX_REQUESTS_PER_MINUTE:
             return False, "Too many requests. Please wait."
-        _web_rate_limits[ip_address] = (last_time, count + 1)
+            
         return True, ""
-    
-    if time_diff < 3600:
-        if count >= WEB_MAX_REQUESTS_PER_HOUR:
-            return False, "Hourly limit exceeded. Please wait."
-        _web_rate_limits[ip_address] = (last_time, count + 1)
+    except Exception as e:
+        log.error(f"Redis web rate limit error: {e}")
         return True, ""
-    
-    _web_rate_limits[ip_address] = (now, 1)
-    return True, ""
 
 
 def check_login_rate_limit(ip_address: str) -> Tuple[bool, str]:
     """
-    Проверяет rate limit для login попыток (более строгий).
-    
-    Returns:
-        (allowed, message): allowed=True если можно, message - причина отказа
+    Проверяет rate limit для login попыток через Redis.
     """
-    _cleanup_web_entries()
+    key = f"{LOGIN_RATE_LIMIT_PREFIX}{ip_address}"
+    block_key = f"{key}:blocked"
     
-    now = time.time()
-    
-    # Проверяем, не заблокирован ли IP
-    if ip_address in _blocked_ips:
-        block_time = _blocked_ips[ip_address]
-        if now - block_time < BLOCK_DURATION_SEC:
-            remaining = int(BLOCK_DURATION_SEC - (now - block_time)) // 60
-            log.warning(f"Blocked IP {ip_address} attempted login")
-            return False, f"IP temporarily blocked. Try again in {remaining} minutes."
-        else:
-            # Блокировка истекла
-            del _blocked_ips[ip_address]
-    
-    if ip_address not in _login_rate_limits:
-        _login_rate_limits[ip_address] = (now, 1)
-        return True, ""
-    
-    last_time, count = _login_rate_limits[ip_address]
-    time_diff = now - last_time
-    
-    if time_diff < 60:
-        if count >= LOGIN_MAX_ATTEMPTS_PER_MINUTE:
-            log.warning(f"Login rate limit exceeded for IP: {ip_address}")
-            # Блокируем IP после превышения лимита
-            if count >= LOGIN_MAX_ATTEMPTS_PER_MINUTE * 2:
-                _blocked_ips[ip_address] = now
-                log.warning(f"IP {ip_address} blocked for repeated login attempts")
+    try:
+        if redis_client.exists(block_key):
+            ttl = redis_client.ttl(block_key)
+            return False, f"IP temporarily blocked. Try again in {ttl // 60} minutes."
+            
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, 3600)
+            
+        if count > LOGIN_MAX_ATTEMPTS_PER_HOUR:
+            redis_client.setex(block_key, BLOCK_DURATION_SEC, "1")
+            return False, "Too many login attempts. IP blocked for 1 hour."
+            
+        min_key = f"{key}:min"
+        min_count = redis_client.incr(min_key)
+        if min_count == 1:
+            redis_client.expire(min_key, 60)
+        
+        if min_count > LOGIN_MAX_ATTEMPTS_PER_MINUTE:
+            if min_count >= LOGIN_MAX_ATTEMPTS_PER_MINUTE * 2:
+                redis_client.setex(block_key, BLOCK_DURATION_SEC, "1")
                 return False, "Too many failed attempts. IP blocked for 1 hour."
             return False, "Too many login attempts. Please wait 1 minute."
-        _login_rate_limits[ip_address] = (last_time, count + 1)
+            
         return True, ""
-    
-    if time_diff < 3600:
-        if count >= LOGIN_MAX_ATTEMPTS_PER_HOUR:
-            log.warning(f"Hourly login rate limit exceeded for IP: {ip_address}")
-            _blocked_ips[ip_address] = now
-            return False, "Too many login attempts. IP blocked for 1 hour."
-        _login_rate_limits[ip_address] = (last_time, count + 1)
+    except Exception as e:
+        log.error(f"Redis login rate limit error: {e}")
         return True, ""
-    
-    _login_rate_limits[ip_address] = (now, 1)
-    return True, ""

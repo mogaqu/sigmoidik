@@ -295,6 +295,20 @@ def _strip_large_media(message: Dict[str, Any]) -> Dict[str, Any]:
     return {"role": message.get("role", "user"), "parts": stripped_parts}
 
 
+def validate_prompt_safety(prompt: str) -> bool:
+    """Проверяет промт на безопасность"""
+    dangerous_patterns = [
+        r'IGNORE PREVIOUS INSTRUCTIONS',
+        r'DEBUG MODE',
+        r'SYSTEM:',
+        r'PROMPT:',
+        r'ROLE:',
+    ]
+    for pattern in dangerous_patterns:
+        if re.search(pattern, prompt, re.IGNORECASE):
+            return False
+    return True
+
 def _normalize_prompt_parts(prompt_parts: List[Any]) -> Dict[str, Any]:
     normalized: List[Dict[str, Any]] = []
     for part in prompt_parts:
@@ -520,13 +534,25 @@ def _is_quality_response(reply_text: str) -> bool:
 
 
 def _prioritize_models(models: List[str]) -> List[str]:
-    """Переупорядочивает модели, чтобы gemini-2.5-pro был первым."""
+    """Переупорядочивает модели, чтобы современные модели были первыми."""
+    # Приоритизируем современные модели, если они есть
+    priority_order = [
+        "gemini-3.1-flash-preview",
+        "gemini-3.0-flash-lite-preview",
+        "gemini-2.5-flash",
+    ]
+    
     prioritized = []
-    if "gemini-2.5-pro" in models:
-        prioritized.append("gemini-2.5-pro")
+    # Сначала добавляем те, что есть в списке и есть в приоритете
+    for p_model in priority_order:
+        if p_model in models:
+            prioritized.append(p_model)
+            
+    # Затем добавляем остальные
     for model in models:
-        if model != "gemini-2.5-pro":
+        if model not in prioritized:
             prioritized.append(model)
+            
     return prioritized
 
 
@@ -542,7 +568,7 @@ def _send_gemini_request(
         log.warning("No Gemini models or API keys available")
         return None
 
-    # Приоритизируем gemini-2.5-pro - он всегда первый
+    # Приоритизируем современные модели
     models_to_try = _prioritize_models(models_to_try)
     log.info(f"Models to try (prioritized): {models_to_try}")
 
@@ -877,6 +903,12 @@ def llm_request(
     stored_history = history.get(chat_id, [])
     user_message = _normalize_prompt_parts(prompt_parts)
 
+    # Валидация промпта
+    user_text = _parts_to_text(user_message.get("parts", []))
+    if not validate_prompt_safety(user_text):
+        log.warning(f"Промпт отклонён по соображениям безопасности в чате {chat_id}")
+        return "⚠️ Ваш запрос отклонён из-за содержания запрещённых инструкций.", "security_filter", None
+
     providers = _provider_sequence(preferred_provider)
     log.info("Provider sequence: %s", providers)
 
@@ -952,6 +984,10 @@ def _generate_image_via_pollinations(
     # Ограничение длины промпта для предотвращения DoS
     if len(prompt) > 2000:
         prompt = prompt[:2000]
+    
+    # Санитизация промпта для предотвращения инъекций
+    # Удаляем потенциально опасные символы
+    prompt = re.sub(r'[<>{}\\]', '', prompt)
     
     seed_value = POLLINATIONS_SEED or str(random.randint(0, 1_000_000_000))
     encoded_prompt = urllib.parse.quote_plus(prompt)
@@ -1071,7 +1107,7 @@ def check_available_models() -> List[str]:
     log.info("Checking available Gemini models...")
     working_models: List[str] = []
     
-    # Приоритизируем gemini-2.5-pro при проверке
+    # Приоритизируем модели при проверке
     models_to_check = _prioritize_models(GEMINI_MODELS)
     
     for model_name in models_to_check:
@@ -1097,7 +1133,7 @@ def check_available_models() -> List[str]:
                 continue
     
     if working_models:
-        # Убеждаемся, что gemini-2.5-pro всегда первый в списке
+        # Убеждаемся, что модели упорядочены
         available_models = _prioritize_models(working_models)
         last_model_check_ts = current_time
         log.info(f"Available Gemini models (prioritized): {available_models}")

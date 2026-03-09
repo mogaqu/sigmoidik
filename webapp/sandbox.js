@@ -61,7 +61,15 @@ function getGameId() {
 }
 
 function validateCodeSafety(code) {
-    const issues = FORBIDDEN_PATTERNS.filter(({ pattern }) => pattern.test(code));
+    // Дополнительная проверка на попытки обойти regex
+    const sanitizedCode = code.replace(/\s+/g, ' ');
+    const issues = FORBIDDEN_PATTERNS.filter(({ pattern }) => pattern.test(sanitizedCode));
+    
+    // Блокируем подозрительно длинный код
+    if (code.length > 10000) {
+         throw new Error("Код слишком длинный.");
+    }
+
     if (issues.length > 0) {
         const reasonList = issues.map((item) => item.reason).join(", ");
         throw new Error(`Код отклонён политикой безопасности: ${reasonList}`);

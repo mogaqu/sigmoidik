@@ -366,9 +366,16 @@ def check_security_config() -> Dict[str, Any]:
     if not os.getenv("WEBHOOK_SECRET_TOKEN"):
         issues.append("WEBHOOK_SECRET_TOKEN не задан - генерируется при каждом запуске")
     
+    # Требуем наличие всех секретов для полной безопасности
+    is_secure = (
+        bool(os.getenv("DATA_HASH_SALT")) and 
+        bool(os.getenv("DATA_ENCRYPTION_KEY")) and
+        bool(os.getenv("WEBHOOK_SECRET_TOKEN"))
+    )
+    
     return {
         "encryption_enabled": _fernet is not None,
         "hash_salt_configured": bool(os.getenv("DATA_HASH_SALT")),
         "issues": issues,
-        "secure": len(issues) == 0
+        "secure": is_secure
     }

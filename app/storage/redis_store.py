@@ -110,6 +110,13 @@ def _deserialize_part(part: Any):
     return part
 
 
+def _sanitize_redis_key(key: str) -> str:
+    """Санидирует ключ Redis для предотвращения инъекций"""
+    sanitized = re.sub(r'[{}\[\]\':"\\|<>?]', '', str(key))
+    if len(sanitized) > 250:
+        sanitized = sanitized[:250]
+    return sanitized
+
 def load_data():
     log.info("Загрузка данных из Redis...")
     
@@ -118,7 +125,7 @@ def load_data():
     
     try:
         loaded_history: Dict[int, List[Dict[str, Any]]] = {}
-        for key in redis_client.scan_iter(match=f"{HISTORY_KEY_PREFIX}*"):
+        for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{HISTORY_KEY_PREFIX}*")):
             chat_id_part = key.split(":", 1)[1]
             raw_value = redis_client.get(key)
             if not raw_value:
@@ -156,7 +163,7 @@ def load_data():
 
     try:
         loaded_configs: Dict[int, ChatConfig] = {}
-        for key in redis_client.scan_iter(match=f"{CONFIG_KEY_PREFIX}*"):
+        for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{CONFIG_KEY_PREFIX}*")):
             chat_id_part = key.split(":", 1)[1]
             raw_value = redis_client.get(key)
             if not raw_value:
@@ -187,7 +194,7 @@ def load_data():
     
     try:
         loaded_users: Dict[int, Dict[int, Dict[str, Any]]] = {}
-        for key in redis_client.scan_iter(match=f"{USER_KEY_PREFIX}*"):
+        for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{USER_KEY_PREFIX}*")):
             chat_id_part = key.split(":", 1)[1]
             raw_value = redis_client.get(key)
             if not raw_value:
@@ -229,8 +236,8 @@ def save_chat_data(chat_id: int):
     # Импортируем здесь чтобы избежать циклических импортов
     from app.security.data_protection import encrypt_pii, encrypt_history
     
-    history_key = f"{HISTORY_KEY_PREFIX}{chat_id}"
-    config_key = f"{CONFIG_KEY_PREFIX}{chat_id}"
+    history_key = _sanitize_redis_key(f"{HISTORY_KEY_PREFIX}{chat_id}")
+    config_key = _sanitize_redis_key(f"{CONFIG_KEY_PREFIX}{chat_id}")
 
     try:
         with redis_client.pipeline() as pipe:
@@ -248,7 +255,7 @@ def save_chat_data(chat_id: int):
             else:
                 pipe.delete(config_key)
 
-            users_key = f"{USER_KEY_PREFIX}{chat_id}"
+            users_key = _sanitize_redis_key(f"{USER_KEY_PREFIX}{chat_id}")
             if chat_id in user_profiles and user_profiles[chat_id]:
                 # Шифруем персональные данные перед сохранением
                 serialized_users = {}
@@ -434,8 +441,12 @@ def create_login_code(
 def consume_login_code(code: str) -> Optional[Dict[str, Any]]:
     # Валидация кода для предотвращения инъекций
     sanitized_code = code.strip().upper()
+    # Ограничение длины для предотвращения DoS
+    if len(sanitized_code) > 20:
+        log.warning("Попытка использовать слишком длинный код входа")
+        return None
     if not re.match(r'^[A-Z0-9]{6,}$', sanitized_code):
-        log.warning("Попытка использовать некорректный код входа: %s", code)
+        log.warning("Попытка использовать некорректный код входа: %s", code[:10])
         return None
     
     key = f"{LOGIN_CODE_PREFIX}{sanitized_code}"

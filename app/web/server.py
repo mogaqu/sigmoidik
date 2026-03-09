@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2025 sprowii
+# Copyright (c) 2025 sprowii
 import json
 import re
 import secrets
@@ -166,7 +166,6 @@ def _normalize_pollinations_text_model(raw: Any) -> Optional[str]:
         return value
     lowered_lookup = {model.lower(): model for model in config.POLLINATIONS_TEXT_MODELS}
     return lowered_lookup.get(value.lower())
-    return None
 
 
 def _require_user() -> Dict[str, Any]:
@@ -294,8 +293,9 @@ def hub_entrypoint():
 
 @flask_app.route("/api/games/<string:game_id>")
 def fetch_game(game_id: str):
-    # Валидация game_id для предотвращения path traversal
+    # Валидация game_id для предотвращения path traversal и инъекций
     if not re.match(r'^[a-f0-9]{32}$', game_id):
+        log.warning(f"Попытка доступа с некорректным game_id: {game_id[:20]}")
         abort(400, description="Некорректный формат game_id")
     payload = load_game_payload(game_id)
     if not payload:
@@ -479,8 +479,18 @@ def create_game_api():
 
 @flask_app.route("/api/games/<string:game_id>/tweak", methods=["POST"])
 def tweak_game_api(game_id: str):
-    # Валидация game_id для предотвращения path traversal
+    # Rate limiting для защиты от DoS через генерацию
+    from app.middleware.rate_limit import check_web_rate_limit
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    allowed, message = check_web_rate_limit(client_ip or "unknown")
+    if not allowed:
+        return jsonify({"error": "rate_limit", "message": message}), 429
+    
+    # Валидация game_id для предотвращения path traversal и инъекций
     if not re.match(r'^[a-f0-9]{32}$', game_id):
+        log.warning(f"Попытка доступа с некорректным game_id: {game_id[:20]}")
         abort(400, description="Некорректный формат game_id")
     payload = load_game_payload(game_id)
     if not payload:

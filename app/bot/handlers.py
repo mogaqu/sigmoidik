@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2025 sprowii
+# Copyright (c) 2025 sprowii
 import asyncio
 import html
 import io
@@ -18,7 +18,7 @@ from app.security.data_protection import safe_log_user, pseudonymize_id, pseudon
 from app.security.privacy import PRIVACY_POLICY_TEXT
 from app.state import ChatConfig, configs, history
 from app.storage.redis_store import create_login_code, persist_chat_data, record_user_profile, redis_client, user_profiles
-from app.utils.text import answer_size_prompt, split_long_message, strip_html_tags
+from app.utils.text import answer_size_prompt, sanitize_html_for_telegram, split_long_message, strip_html_tags
 from app.game.generator import GeneratedGame, generate_game
 from app.middleware.rate_limit import check_rate_limit, get_user_stats
 from app.middleware.cache import get_cached_response, cache_response, get_cache_stats
@@ -473,7 +473,9 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             data_updated = True
         elif reply:
             model_display = model_used.replace("gemini-", "").replace("-latest", "").title()
-            full_reply = f"<b>{model_display}</b>\n\n{reply}"
+            # Санитизация HTML для защиты от XSS при выводе ответа LLM
+            safe_reply = sanitize_html_for_telegram(reply)
+            full_reply = f"<b>{model_display}</b>\n\n{safe_reply}"
             for chunk in split_long_message(full_reply):
                 try:
                     await update.message.reply_text(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
@@ -765,7 +767,7 @@ async def summarize_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if summary:
         await update.message.reply_text(
-            f"📝 <b>Краткое содержание:</b>\n\n{summary}",
+            f"📝 <b>Краткое содержание:</b>\n\n{sanitize_html_for_telegram(summary)}",
             parse_mode=ParseMode.HTML
         )
     else:
@@ -816,7 +818,7 @@ async def translate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if translation:
         await update.message.reply_text(
-            f"🌍 <b>Перевод ({target_lang}):</b>\n{translation}",
+            f"🌍 <b>Перевод ({target_lang}):</b>\n{sanitize_html_for_telegram(translation)}",
             parse_mode=ParseMode.HTML
         )
     else:

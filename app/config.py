@@ -22,14 +22,21 @@ if not REDIS_URL:
 # Валидация Redis URL для предотвращения инъекций
 if not REDIS_URL.startswith(("redis://", "rediss://")):
     raise RuntimeError("REDIS_URL должен начинаться с redis:// или rediss://")
+# Дополнительная проверка на опасные символы
+if any(char in REDIS_URL for char in [';', '|', '&', '$', '`', '\n', '\r']):
+    raise RuntimeError("REDIS_URL содержит недопустимые символы")
 REDIS_URL = _resolve_redis_url(REDIS_URL)
 
 TG_TOKEN = os.getenv("TG_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID")
 
 # Секретный токен для верификации Telegram webhook запросов
-# Если не задан, генерируется автоматически при каждом запуске
-WEBHOOK_SECRET_TOKEN = os.getenv("WEBHOOK_SECRET_TOKEN") or secrets.token_urlsafe(32)
+WEBHOOK_SECRET_TOKEN = os.getenv("WEBHOOK_SECRET_TOKEN")
+if not WEBHOOK_SECRET_TOKEN:
+    log.warning("WEBHOOK_SECRET_TOKEN не задан! Генерирую временный токен. "
+                "ВАЖНО: При перезапуске бота webhook перестанет работать, если токен изменится. "
+                "Задайте WEBHOOK_SECRET_TOKEN для production.")
+    WEBHOOK_SECRET_TOKEN = secrets.token_urlsafe(32)
 
 
 def _load_api_keys() -> List[str]:
@@ -63,11 +70,10 @@ if not API_KEYS:
     )
 
 MODELS: List[str] = [
-    "gemini-2.5-pro",
+    "gemini-3.0-flash-lite-preview",
+    "gemini-3.1-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-lite-preview",
-    "gemini-2.0-flash",
 ]
 
 IMAGE_MODEL_NAME = os.getenv("IMAGE_MODEL_NAME", "gemini-2.0-flash-preview-image")
@@ -77,7 +83,7 @@ OPENROUTER_MODELS: List[str] = [
     model.strip()
     for model in os.getenv(
         "OPENROUTER_MODELS",
-        "deepseek/deepseek-chat-v3-0324:free,deepseek/deepseek-r1-0528:free,tngtech/deepseek-r1t2-chimera:free",
+        "z-ai/glm-4.5-air:free,arcee-ai/trinity-large-preview:free,stepfun/step-3.5-flash:free,nvidia/nemotron-3-nano-30b-a3b:free,qwen/qwen3-vl-235b-a22b-thinking",
     ).split(",")
     if model.strip()
 ]
@@ -107,22 +113,21 @@ POLLINATIONS_TEXT_BASE_URL = os.getenv(
 POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY")
 
 # Список доступных текстовых моделей, через запятую.
-# По умолчанию используются модели, которые вы просили: 'o4-mini' и 'gemini-search'
 POLLINATIONS_TEXT_MODELS: List[str] = [
     model.strip()
     for model in os.getenv(
         "POLLINATIONS_TEXT_MODELS",
-        "o4-mini,gemini-search",
+        "claude-haiku-4.5,gpt-4o-mini-audio,sonar-reasoning,kimi-k2.5,glm-5",
     ).split(",")
     if model.strip()
 ]
 
 # Запасной вариант, если переменная окружения пуста
 if not POLLINATIONS_TEXT_MODELS:
-    POLLINATIONS_TEXT_MODELS = ["o4-mini"]
+    POLLINATIONS_TEXT_MODELS = ["claude-haiku-4.5"]
 
 # Модель по умолчанию
-POLLINATIONS_TEXT_DEFAULT = os.getenv("POLLINATIONS_TEXT_DEFAULT", "o4-mini")
+POLLINATIONS_TEXT_DEFAULT = os.getenv("POLLINATIONS_TEXT_DEFAULT", "claude-haiku-4.5")
 if POLLINATIONS_TEXT_DEFAULT not in POLLINATIONS_TEXT_MODELS:
     POLLINATIONS_TEXT_DEFAULT = POLLINATIONS_TEXT_MODELS[0]
 
