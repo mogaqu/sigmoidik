@@ -1156,28 +1156,32 @@ def llm_generate_image(prompt: str, pollinations_model: Optional[str] = None) ->
     global current_key_idx
     
     if POLLINATIONS_ENABLED and POLLINATIONS_BASE_URL:
-        # Если модель не указана, пробуем все доступные модели по очереди
-        if not pollinations_model:
-            from app.config import POLLINATIONS_MODELS
-            for idx, model in enumerate(POLLINATIONS_MODELS):
-                log.info(f"Trying Pollinations model: {model} ({idx + 1}/{len(POLLINATIONS_MODELS)})")
-                image_bytes, provider = _generate_image_via_pollinations(prompt, model)
-                if image_bytes:
-                    return image_bytes, provider
-                
-                # Небольшая задержка между попытками, чтобы не спамить API
-                if idx < len(POLLINATIONS_MODELS) - 1:
-                    time.sleep(0.5)
-                    
-                log.warning(f"Model {model} failed, trying next...")
-        else:
-            # Если модель указана пользователем, используем только её
+        # Если модель указана пользователем, используем только её
+        if pollinations_model:
+            log.info(f"Using user-selected Pollinations model: {pollinations_model}")
             image_bytes, provider = _generate_image_via_pollinations(prompt, pollinations_model)
             if image_bytes:
                 return image_bytes, provider
+            log.warning(f"User-selected model {pollinations_model} failed")
+            return None, f"pollinations:{pollinations_model}"
+        
+        # Если модель не указана, пробуем все доступные модели по очереди
+        from app.config import POLLINATIONS_MODELS
+        for idx, model in enumerate(POLLINATIONS_MODELS):
+            log.info(f"Trying Pollinations model: {model} ({idx + 1}/{len(POLLINATIONS_MODELS)})")
+            image_bytes, provider = _generate_image_via_pollinations(prompt, model)
+            if image_bytes:
+                return image_bytes, provider
+            
+            # Небольшая задержка между попытками, чтобы не спамить API
+            if idx < len(POLLINATIONS_MODELS) - 1:
+                time.sleep(0.5)
+                
+            log.warning(f"Model {model} failed, trying next...")
 
     # Все модели не сработали
     log.error("All Pollinations models failed to generate image")
+    return None, "pollinations"
     return None, "pollinations"
 
 

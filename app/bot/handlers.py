@@ -298,7 +298,9 @@ async def generate_and_send_image(update: Update, context: ContextTypes.DEFAULT_
         poll_model: Optional[str] = None
         if chat_id is not None:
             cfg = get_cfg(chat_id)
-            poll_model = cfg.pollinations_model or None
+            # Используем модель только если она явно задана (не пустая строка)
+            if cfg.pollinations_model and cfg.pollinations_model.strip():
+                poll_model = cfg.pollinations_model
         loop = asyncio.get_running_loop()
         image_bytes, model_used = await loop.run_in_executor(
             None, partial(llm_generate_image, prompt, poll_model)
