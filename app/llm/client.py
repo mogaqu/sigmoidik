@@ -51,6 +51,8 @@ _clients: Dict[int, genai.Client] = {}
 
 current_or_key_idx = 0
 current_or_model_idx = 0
+available_or_models: List[str] = OPENROUTER_MODELS.copy() if OPENROUTER_MODELS else []
+last_or_check_ts: float = 0.0
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 SERVICE_UNAVAILABLE_DELAY = 2.0
@@ -655,8 +657,8 @@ def _send_openrouter_request(
     log.info("Attempting OpenRouter request")
     global current_or_key_idx, current_or_model_idx
 
-    if not OPENROUTER_API_KEYS or not OPENROUTER_MODELS:
-        log.warning("No OpenRouter API keys or models available")
+    if not OPENROUTER_API_KEYS or not available_or_models:
+        log.warning("No OpenRouter API keys or available models")
         return None
 
     if not _can_use_text_only_provider(user_message):
@@ -676,8 +678,8 @@ def _send_openrouter_request(
     else:
         # Стандартная ротация (round-robin), если модель не выбрана
         models_to_iterate = [
-            OPENROUTER_MODELS[(current_or_model_idx + i) % len(OPENROUTER_MODELS)]
-            for i in range(len(OPENROUTER_MODELS))
+            available_or_models[(current_or_model_idx + i) % len(available_or_models)]
+            for i in range(len(available_or_models))
         ]
 
     for model_name in models_to_iterate:
@@ -733,7 +735,7 @@ def _send_openrouter_request(
                 # Обновляем индекс модели, только если это была ротация, а не выбор пользователя
                 if not preferred_model:
                     try:
-                        successful_model_index = OPENROUTER_MODELS.index(model_name)
+                        successful_model_index = available_or_models.index(model_name)
                         current_or_model_idx = successful_model_index
                     except ValueError:
                         # Модель не найдена в списке, ничего не делаем с индексом
@@ -1143,3 +1145,73 @@ def check_available_models() -> List[str]:
         log.warning("Could not verify models, using all configured models (prioritized)")
     
     return available_models
+
+
+def check_openrouter_models() -> List[str]:
+    """Проверяет доступность моделей OpenRouter, отправляя тестовый запрос."""
+    global available_or_models, last_or_check_ts
+    
+    if not OPENROUTER_API_KEYS or not OPENROUTER_MODELS:
+        log.debug("OpenRouter not configured, skipping check")
+        return []
+    
+    current_time = time.time()
+    if current_time - last_or_check_ts < MODEL_CHECK_INTERVAL:
+        return available_or_models
+    
+    log.info("Checking available OpenRouter models...")
+    working_models: List[str] = []
+    
+    test_messages = [{"role": "user", "content": "Привет"}]
+    
+    for model_name in OPENROUTER_MODELS:
+        model_found = False
+        for key_idx in range(len(OPENROUTER_API_KEYS)):
+            if model_found:
+                break
+            try:
+                api_key = OPENROUTER_API_KEYS[key_idx]
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                }
+                if OPENROUTER_SITE_URL:
+                    headers["HTTP-Referer"] = OPENROUTER_SITE_URL
+                if OPENROUTER_SITE_NAME:
+                    headers["X-Title"] = OPENROUTER_SITE_NAME
+                
+                payload = {
+                    "model": model_name,
+                    "messages": test_messages,
+                    "max_tokens": 10
+                }
+                
+                response = requests.post(
+                    OPENROUTER_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("choices"):
+                        working_models.append(model_name)
+                        log.info(f"OpenRouter model {model_name} is available with key #{key_idx + 1}")
+                        model_found = True
+                else:
+                    log.debug(f"OpenRouter model {model_name} test failed with key #{key_idx + 1}: HTTP {response.status_code}")
+                    
+            except Exception as e:
+                log.debug(f"OpenRouter model {model_name} test failed with key #{key_idx + 1}: {e}")
+                continue
+    
+    if working_models:
+        available_or_models = working_models
+        last_or_check_ts = current_time
+        log.info(f"Available OpenRouter models: {available_or_models}")
+    else:
+        available_or_models = OPENROUTER_MODELS.copy()
+        log.warning("Could not verify OpenRouter models, using all configured models")
+    
+    return available_or_models

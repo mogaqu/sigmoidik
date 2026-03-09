@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
-from app.llm.client import check_available_models, llm_request
+from app.llm.client import check_available_models, check_openrouter_models, llm_request
 from app.logging_config import log
 from app.state import configs
 from app.storage.redis_store import persist_chat_data
@@ -14,7 +14,10 @@ from app.utils.text import split_long_message
 
 
 async def check_models_job(context: CallbackContext):
-    await asyncio.get_running_loop().run_in_executor(None, check_available_models)
+    """Проверяет доступность моделей Gemini и OpenRouter."""
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, check_available_models)
+    await loop.run_in_executor(None, check_openrouter_models)
 
 
 async def autopost_job(context: CallbackContext):
