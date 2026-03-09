@@ -60,13 +60,13 @@ def build_application(token: str, bot_username: str):
         "security_status": handlers.security_status_cmd,
         "delete_data": handlers.delete_data,
         "autopost": handlers.autopost_switch,
-        "set_interval": handlers.set_interval,
-        "set_minmsgs": handlers.set_minmsgs,
-        "set_msgsize": handlers.set_msgsize,
-        "set_draw_model": handlers.set_draw_model,
-        "set_pollinations_text_model": handlers.set_pollinations_text_model,
-        "set_or_model": handlers.set_openrouter_model_handler,
-        "set_provider": handlers.set_provider,
+    "interval": handlers.set_interval,
+    "minmsgs": handlers.set_minmsgs,
+    "msgsize": handlers.set_msgsize,
+    "draw_model": handlers.set_draw_model,
+    "poll_text": handlers.set_pollinations_text_model,
+    "or_model": handlers.set_openrouter_model_handler,
+    "provider": handlers.set_provider,
         # Moderation commands (Requirements 3.1, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4)
         "warn": handlers.warn_cmd,
         "warns": handlers.warns_cmd,
@@ -79,13 +79,13 @@ def build_application(token: str, bot_username: str):
         # Content filter commands (Requirement 5)
         "addfilter": handlers.addfilter_cmd,
         "removefilter": handlers.removefilter_cmd,
-        "filters": handlers.filters_cmd,
-        # Moderation settings commands (Requirement 7)
-        "modsettings": handlers.mod_settings_cmd,
-        "setmodvalue": handlers.setmodvalue_cmd,
-        "setlogchannel": handlers.setlogchannel_cmd,
-        "exportsettings": handlers.exportsettings_cmd,
-        "importsettings": handlers.importsettings_cmd,
+    "filters": handlers.filters_cmd,
+    # Moderation settings commands (Requirement 7)
+    "modsettings": handlers.mod_settings_cmd,
+    "modval": handlers.setmodvalue_cmd,
+    "logchannel": handlers.setlogchannel_cmd,
+    "export": handlers.exportsettings_cmd,
+    "import": handlers.importsettings_cmd,
         # Moderation log command (Requirement 8)
         "modlog": handlers.modlog_cmd,
     }

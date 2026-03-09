@@ -70,8 +70,8 @@ if not API_KEYS:
     )
 
 MODELS: List[str] = [
-    "gemini-3.0-flash-lite-preview",
-    "gemini-3.1-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
 ]
@@ -84,7 +84,7 @@ OPENROUTER_MODELS: List[str] = [
     for model in os.getenv(
         "OPENROUTER_MODELS",
         "z-ai/glm-4.5-air:free,arcee-ai/trinity-large-preview:free,stepfun/step-3.5-flash:free,nvidia/nemotron-3-nano-30b-a3b:free,qwen/qwen3-vl-235b-a22b-thinking",
-    ).split(",")
+    ).split(";")
     if model.strip()
 ]
 OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL")
