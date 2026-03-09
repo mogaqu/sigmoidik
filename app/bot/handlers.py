@@ -62,7 +62,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         provider_options.append("openrouter")
     if getattr(config, "POLLINATIONS_TEXT_MODELS", None):
         provider_options.append("pollinations")
-    provider_hint = ", ".join(provider_options + ["auto"])
+    provider_hint = html.escape(", ".join(provider_options + ["auto"]))
     
     await update.message.reply_text(
         "🎬 Видео поддерживается!\n\n"
@@ -74,7 +74,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stats – статистика 📊\n\n"
         "<b>Настройки:</b>\n"
         "/settings – текущие настройки\n"
-        f"/provider <{provider_hint}> – выбрать LLM\n"
+        f"/provider ({provider_hint}) – выбрать LLM\n"
         "/or_model – модель OpenRouter\n"
         "/poll_text – модель Pollinations\n"
         "/msgsize <s|m|l> – размер ответа\n\n"

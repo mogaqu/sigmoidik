@@ -59,18 +59,20 @@ def add_security_headers(response):
     # Permissions Policy (отключаем ненужные API)
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     # Content Security Policy
-    # Разрешаем: свои скрипты/стили, Google Fonts, CDN для Three.js
+    # Используем строгий CSP без unsafe-inline
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: https:; "
         "connect-src 'self'; "
         "frame-src 'self'; "
         "frame-ancestors 'self'; "
         "base-uri 'self'; "
-        "form-action 'self'"
+        "form-action 'self'; "
+        "object-src 'none'; "
+        "upgrade-insecure-requests"
     )
     response.headers["Content-Security-Policy"] = csp
     return response

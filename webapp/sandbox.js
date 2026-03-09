@@ -9,11 +9,11 @@ const GAME_ID_PARAM_NAMES = ["game_id", "gameId", "id"];
  */
 const FORBIDDEN_PATTERNS = [
     // Глобальные объекты
-    { pattern: /\bwindow\s*\./i, reason: "доступ к window.* запрещён" },
-    { pattern: /\bdocument\s*\./i, reason: "доступ к document.* запрещён" },
-    { pattern: /\bparent\s*\./i, reason: "доступ к parent.* запрещён" },
-    { pattern: /\btop\s*\./i, reason: "доступ к top.* запрещён" },
-    { pattern: /\bopener\s*\./i, reason: "доступ к opener.* запрещён" },
+    { pattern: /\bwindow\s*[\.\[]/i, reason: "доступ к window.* запрещён" },
+    { pattern: /\bdocument\s*[\.\[]/i, reason: "доступ к document.* запрещён" },
+    { pattern: /\bparent\s*[\.\[]/i, reason: "доступ к parent.* запрещён" },
+    { pattern: /\btop\s*[\.\[]/i, reason: "доступ к top.* запрещён" },
+    { pattern: /\bopener\s*[\.\[]/i, reason: "доступ к opener.* запрещён" },
 
     // Хранилища
     { pattern: /\blocalStorage\b/i, reason: "localStorage запрещён" },
@@ -32,6 +32,13 @@ const FORBIDDEN_PATTERNS = [
 
     // Вставка скриптов
     { pattern: /<script/i, reason: "вставка <script> запрещена" },
+    
+    // Prototype pollution
+    { pattern: /\b__proto__\b/i, reason: "__proto__ запрещён" },
+    { pattern: /\.prototype\s*=/i, reason: "изменение prototype запрещено" },
+    { pattern: /\.constructor\s*\(/i, reason: "доступ к constructor запрещён" },
+    { pattern: /Object\.defineProperty/i, reason: "Object.defineProperty запрещён" },
+    { pattern: /Object\.setPrototypeOf/i, reason: "Object.setPrototypeOf запрещён" },
 ];
 
 function setStatus(message, secondArg = false) {
@@ -338,7 +345,18 @@ ${code}
  * - автозапускаем __SIGMOIDA_START__(root).
  */
 function buildFrameSrcDoc(gameCodeWrapped) {
-    const escapedCode = gameCodeWrapped.replace(/<\/script/gi, "<\\/script");
+    // Более надежное экранирование для предотвращения инъекций
+    const escapedCode = gameCodeWrapped
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+
+    // Генерируем nonce для CSP
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
     return `
 <!DOCTYPE html>
@@ -346,8 +364,9 @@ function buildFrameSrcDoc(gameCodeWrapped) {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'nonce-${nonce}'; connect-src https://cdn.jsdelivr.net; img-src 'self' data:; frame-ancestors 'none';">
     <title>Sigmoida Game</title>
-    <style>
+    <style nonce="${nonce}">
         html, body {
             margin: 0;
             padding: 0;
@@ -368,14 +387,20 @@ function buildFrameSrcDoc(gameCodeWrapped) {
 </head>
 <body>
     <div id="root"></div>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script>
+    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
+    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script nonce="${nonce}">
 ${escapedCode}
     </script>
-    <script>
+    <script nonce="${nonce}">
         (function () {
             "use strict";
+            
+            // Дополнительная защита от prototype pollution
+            Object.freeze(Object.prototype);
+            Object.freeze(Array.prototype);
+            Object.freeze(Function.prototype);
+            
             window.addEventListener("load", function () {
                 const root = document.getElementById("root");
                 if (!root || typeof window.__SIGMOIDA_START__ !== "function") {

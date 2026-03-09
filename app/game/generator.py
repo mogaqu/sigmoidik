@@ -415,6 +415,11 @@ def _validate_js_code(code: str) -> Optional[str]:
         r'localStorage',
         r'sessionStorage',
         r'indexedDB',
+        r'__proto__',
+        r'\.prototype\s*=',
+        r'\.constructor\s*\(',
+        r'Object\.defineProperty',
+        r'Object\.setPrototypeOf',
     ]
     
     for pattern in dangerous_patterns:
