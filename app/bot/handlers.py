@@ -11,7 +11,7 @@ from telegram.constants import ChatAction, ChatType, MessageEntityType, ParseMod
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 from app import config
-from app.config import OPENROUTER_MODELS
+from app.config import OPENROUTER_MODELS, AIRFORCE_MODELS
 from app.llm.client import llm_generate_image, llm_request
 from app.logging_config import log
 from app.security.data_protection import safe_log_user, pseudonymize_id, pseudonymize_chat_id
@@ -60,6 +60,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     provider_options = ["gemini"]
     if config.OPENROUTER_API_KEYS and config.OPENROUTER_MODELS:
         provider_options.append("openrouter")
+    if config.AIRFORCE_API_KEYS and config.AIRFORCE_MODELS:
+        provider_options.append("airforce")
     if getattr(config, "POLLINATIONS_TEXT_MODELS", None):
         provider_options.append("pollinations")
     provider_hint = html.escape(", ".join(provider_options + ["auto"]))
@@ -76,6 +78,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/settings – текущие настройки\n"
         f"/provider ({provider_hint}) – выбрать LLM\n"
         "/or_model – модель OpenRouter\n"
+        "/air_model – модель Airforce\n"
         "/poll_text – модель Pollinations\n"
         "/msgsize " + html.escape("<s|m|l>") + " – размер ответа\n\n"
         "<b>Модерация (для групп):</b>\n"
@@ -210,18 +213,23 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     provider = cfg.llm_provider or "auto"
     pollinations_text = cfg.pollinations_text_model or config.POLLINATIONS_TEXT_DEFAULT
     openrouter_model = cfg.openrouter_model or "ротация"
+    airforce_model = cfg.airforce_model or "ротация"
     
     provider_line = f"<b>LLM:</b> {html.escape(provider)}"
     if provider == "pollinations" and pollinations_text:
         provider_line += f" (Pollinations → {html.escape(pollinations_text)})"
     elif provider == "openrouter":
         provider_line += f" (OpenRouter → {html.escape(openrouter_model)})"
+    elif provider == "airforce":
+        provider_line += f" (Airforce → {html.escape(airforce_model)})"
     
     providers_status = []
     if config.API_KEYS:
         providers_status.append("✅ Gemini")
     if config.OPENROUTER_API_KEYS and config.OPENROUTER_MODELS:
         providers_status.append("✅ OpenRouter")
+    if config.AIRFORCE_API_KEYS and config.AIRFORCE_MODELS:
+        providers_status.append("✅ Airforce")
     if getattr(config, "POLLINATIONS_TEXT_MODELS", None):
         providers_status.append("✅ Pollinations")
     
@@ -397,6 +405,8 @@ async def set_provider(update: Update, context: ContextTypes.DEFAULT_TYPE):
         available.append("gemini")
     if config.OPENROUTER_API_KEYS and config.OPENROUTER_MODELS:
         available.append("openrouter")
+    if config.AIRFORCE_API_KEYS and config.AIRFORCE_MODELS:
+        available.append("airforce")
     if getattr(config, "POLLINATIONS_TEXT_MODELS", None):
         available.append("pollinations")
     if not available:
@@ -872,6 +882,55 @@ async def set_openrouter_model_handler(update: Update, context: ContextTypes.DEF
     
     await update.message.reply_html(
         f"✅ Готово! Ваша модель OpenRouter установлена на:\n<b>{chosen_model}</b>"
+    )
+
+
+async def set_airforce_model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Устанавливает или показывает предпочитаемую модель Airforce.
+    При вызове без аргументов показывает текущее значение и список доступных моделей.
+    """
+    await ensure_user_profile(update)
+    if not update.message or not update.effective_chat:
+        return
+
+    chat_id = update.effective_chat.id
+    cfg = get_cfg(chat_id)
+    args = context.args
+    
+    # ЕСЛИ КОМАНДА ВЫЗВАНА БЕЗ АРГУМЕНТОВ
+    if not args:
+        # Безопасно получаем текущее значение
+        current_model = getattr(cfg, 'airforce_model', 'по умолчанию (ротация)')
+        
+        # Формируем красивый список доступных моделей
+        available_models_text = "\n".join([f"• <code>{model}</code>" for model in AIRFORCE_MODELS])
+        
+        # Отправляем пользователю справку
+        await update.message.reply_html(
+            f"Текущая модель Airforce: <b>{current_model}</b>\n\n"
+            f"Чтобы изменить, используйте команду с названием модели, например:\n"
+            f"<code>/air_model {AIRFORCE_MODELS[0]}</code>\n\n"
+            f"<b>Доступные модели:</b>\n{available_models_text}"
+        )
+        return
+
+    # Если аргумент есть, пытаемся его установить
+    chosen_model = args[0].strip()
+
+    if chosen_model not in AIRFORCE_MODELS:
+        await update.message.reply_html(
+            f"❌ <b>Ошибка:</b> Модель '<code>{chosen_model}</code>' не найдена в списке доступных.\n"
+            f"Используйте команду <code>/air_model</code> без параметров, чтобы увидеть список."
+        )
+        return
+
+    # Сохраняем выбор пользователя
+    cfg.airforce_model = chosen_model
+    await persist_chat_data(chat_id)
+    
+    await update.message.reply_html(
+        f"✅ Готово! Ваша модель Airforce установлена на:\n<b>{chosen_model}</b>"
     )
 
 

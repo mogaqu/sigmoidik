@@ -66,6 +66,7 @@ def build_application(token: str, bot_username: str):
         "draw_model": handlers.set_draw_model,
         "poll_text": handlers.set_pollinations_text_model,
         "or_model": handlers.set_openrouter_model_handler,
+        "air_model": handlers.set_airforce_model_handler,
         "provider": handlers.set_provider,
         # Moderation commands
         "warn": handlers.warn_cmd,
