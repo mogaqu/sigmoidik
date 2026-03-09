@@ -408,7 +408,7 @@ async def set_provider(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current = cfg.llm_provider or "auto"
         await message.reply_text(
             "Текущий провайдер: <b>{current}</b>\n"
-            "Доступные варианты: {choices}, auto (используй <code>/set_provider auto</code> для автоматического выбора)."
+            "Доступные варианты: {choices}, auto (используй <code>/provider auto</code> для автоматического выбора)."
             .format(current=html.escape(current), choices=", ".join(available)),
             parse_mode=ParseMode.HTML,
         )
@@ -436,7 +436,7 @@ async def set_provider(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(
             "Для этого чата выбран провайдер LLM: pollinations.\n"
             f"Используется текстовая модель Pollinations: {cfg.pollinations_text_model}.\n"
-            "Чтобы сменить модель, воспользуйся командой /set_pollinations_text_model <название>."
+            "Чтобы сменить модель, воспользуйся командой /poll_text <название>."
         )
     else:
         await message.reply_text(f"Для этого чата выбран провайдер LLM: {value}")
@@ -487,7 +487,7 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             data_updated = True
         else:
             await update.message.reply_text(
-                "⚠️ Модель не вернула ответа. Попробуй переформулировать запрос или сменить провайдера через /set_provider."
+                "⚠️ Модель не вернула ответа. Попробуй переформулировать запрос или сменить провайдера через /provider."
             )
             data_updated = True
     except Exception as exc:
@@ -851,7 +851,7 @@ async def set_openrouter_model_handler(update: Update, context: ContextTypes.DEF
         await update.message.reply_html(
             f"Текущая модель OpenRouter: <b>{current_model}</b>\n\n"
             f"Чтобы изменить, используйте команду с названием модели, например:\n"
-            f"<code>/set_or_model {OPENROUTER_MODELS[0]}</code>\n\n"
+            f"<code>/or_model {OPENROUTER_MODELS[0]}</code>\n\n"
             f"<b>Доступные модели:</b>\n{available_models_text}"
         )
         return
@@ -862,7 +862,7 @@ async def set_openrouter_model_handler(update: Update, context: ContextTypes.DEF
     if chosen_model not in OPENROUTER_MODELS:
         await update.message.reply_html(
             f"❌ <b>Ошибка:</b> Модель '<code>{chosen_model}</code>' не найдена в списке доступных.\n"
-            f"Используйте команду <code>/set_or_model</code> без параметров, чтобы увидеть список."
+            f"Используйте команду <code>/or_model</code> без параметров, чтобы увидеть список."
         )
         return
 
