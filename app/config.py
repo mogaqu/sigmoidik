@@ -113,7 +113,7 @@ AIRFORCE_MODELS: List[str] = [
     if model.strip()
 ]
 AIRFORCE_BASE_URL = os.getenv("AIRFORCE_BASE_URL", "https://api.airforce/v1/chat/completions")
-AIRFORCE_TIMEOUT = float(os.getenv("AIRFORCE_TIMEOUT", "60"))
+AIRFORCE_TIMEOUT = float(os.getenv("AIRFORCE_TIMEOUT", "300"))
 
 LLM_PROVIDER_ORDER: List[str] = [
     provider.strip().lower()
