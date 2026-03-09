@@ -60,14 +60,14 @@ def build_application(token: str, bot_username: str):
         "security_status": handlers.security_status_cmd,
         "delete_data": handlers.delete_data,
         "autopost": handlers.autopost_switch,
-    "interval": handlers.set_interval,
-    "minmsgs": handlers.set_minmsgs,
-    "msgsize": handlers.set_msgsize,
-    "draw_model": handlers.set_draw_model,
-    "poll_text": handlers.set_pollinations_text_model,
-    "or_model": handlers.set_openrouter_model_handler,
-    "provider": handlers.set_provider,
-        # Moderation commands (Requirements 3.1, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4)
+        "interval": handlers.set_interval,
+        "minmsgs": handlers.set_minmsgs,
+        "msgsize": handlers.set_msgsize,
+        "draw_model": handlers.set_draw_model,
+        "poll_text": handlers.set_pollinations_text_model,
+        "or_model": handlers.set_openrouter_model_handler,
+        "provider": handlers.set_provider,
+        # Moderation commands
         "warn": handlers.warn_cmd,
         "warns": handlers.warns_cmd,
         "clearwarns": handlers.clearwarns_cmd,
@@ -76,18 +76,19 @@ def build_application(token: str, bot_username: str):
         "mute": handlers.mute_cmd,
         "unmute": handlers.unmute_cmd,
         "kick": handlers.kick_cmd,
-        # Content filter commands (Requirement 5)
+        # Content filter commands
         "addfilter": handlers.addfilter_cmd,
         "removefilter": handlers.removefilter_cmd,
-    "filters": handlers.filters_cmd,
-    # Moderation settings commands (Requirement 7)
-    "modsettings": handlers.mod_settings_cmd,
-    "modval": handlers.setmodvalue_cmd,
-    "logchannel": handlers.setlogchannel_cmd,
-    "export": handlers.exportsettings_cmd,
-    "import": handlers.importsettings_cmd,
-        # Moderation log command (Requirement 8)
+        "filters": handlers.filters_cmd,
+        # Moderation settings commands
+        "modsettings": handlers.mod_settings_cmd,
+        "modval": handlers.setmodvalue_cmd,
+        "logchannel": handlers.setlogchannel_cmd,
+        "export": handlers.exportsettings_cmd,
+        "import": handlers.importsettings_cmd,
+        # Moderation log command
         "modlog": handlers.modlog_cmd,
+        "help": handlers.help_cmd,
     }
     for command, callback in command_handlers.items():
         app.add_handler(CommandHandler(command, callback))

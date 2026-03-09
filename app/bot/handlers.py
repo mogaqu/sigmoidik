@@ -53,6 +53,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML,
     )
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    log.info("help_cmd called for chat %s", update.effective_chat.id)
     await ensure_user_profile(update)
     poll_models = ", ".join(config.POLLINATIONS_MODELS) if getattr(config, "POLLINATIONS_MODELS", None) else config.POLLINATIONS_MODEL
     poll_text_models = ", ".join(config.POLLINATIONS_TEXT_MODELS) if getattr(config, "POLLINATIONS_TEXT_MODELS", None) else config.POLLINATIONS_TEXT_DEFAULT
