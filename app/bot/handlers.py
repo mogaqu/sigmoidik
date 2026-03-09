@@ -77,7 +77,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"/provider ({provider_hint}) – выбрать LLM\n"
         "/or_model – модель OpenRouter\n"
         "/poll_text – модель Pollinations\n"
-        "/msgsize <s|m|l> – размер ответа\n\n"
+        "/msgsize " + html.escape("<s|m|l>") + " – размер ответа\n\n"
         "<b>Модерация (для групп):</b>\n"
         "/warn @user причина – предупреждение ⚠️\n"
         "/warns @user – список предупреждений\n"
