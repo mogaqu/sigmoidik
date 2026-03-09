@@ -262,11 +262,13 @@ def save_chat_data(chat_id: int):
                 # Шифруем историю диалогов!
                 encrypted_history = encrypt_history(history_json)
                 pipe.set(history_key, encrypted_history)
+                log.info(f"Saved history for chat {chat_id}")
             else:
                 pipe.delete(history_key)
 
             if chat_id in configs:
                 pipe.set(config_key, json.dumps(asdict(configs[chat_id]), ensure_ascii=False))
+                log.info(f"Saved config for chat {chat_id}: {asdict(configs[chat_id])}")
             else:
                 pipe.delete(config_key)
 
@@ -289,8 +291,10 @@ def save_chat_data(chat_id: int):
 
 
 async def persist_chat_data(chat_id: int):
+    log.info(f"Persisting data for chat {chat_id}")
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, save_chat_data, chat_id)
+    log.info(f"Data persisted for chat {chat_id}")
 
 
 def record_user_profile(chat_id: int, user: Optional[User]) -> bool:
@@ -481,5 +485,3 @@ def consume_login_code(code: str) -> Optional[Dict[str, Any]]:
         log.warning("Некорректный JSON в коде входа %s", sanitized_code)
         return None
     return decoded
-
-

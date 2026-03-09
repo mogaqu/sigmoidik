@@ -10,12 +10,15 @@ def strip_html_tags(text: str) -> str:
 def remove_ads(text: str) -> str:
     """Удаляет известные рекламные сообщения."""
     ad_patterns = [
+        r"Need proxies cheaper than the market\?.*?https://op\.wtf",
+        r"Need proxies cheaper than the market\?.*?op\.wtf",
+        r"discord\.gg/airforce",
         r"Need proxies cheaper than the market\?",
         r"https://op\.wtf",
-        r"discord\.gg/airforce",
+        r"cheaper than the market",
     ]
     for pattern in ad_patterns:
-        text = re.sub(pattern, "", text, flags=re.I)
+        text = re.sub(pattern, "", text, flags=re.I | re.DOTALL)
     return text.strip()
 
 
