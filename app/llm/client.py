@@ -878,7 +878,7 @@ def _airforce_model_for_chat(chat_id: Optional[int]) -> Optional[str]:
 
 
 def _is_airforce_error_response(reply_text: str) -> bool:
-    """Проверяет, является ли ответ Airforce сообщением об ошибке."""
+    """Проверяет, является ли ответ Airforce сообщением об ошибке или рекламой."""
     if not reply_text:
         return True
     
@@ -887,13 +887,27 @@ def _is_airforce_error_response(reply_text: str) -> bool:
         "rate limit exceeded",
         "please join:",
         "discord.gg/airforce",
+        "discord.gg/",
         "error:",
         "service unavailable",
         "too many requests",
+        "need proxies",
+        "op.wtf",
+        "https://op.wtf",
+        "cheaper than the market",
     ]
     
     reply_lower = reply_text.lower()
-    return any(pattern in reply_lower for pattern in error_patterns)
+    
+    # Проверяем паттерны ошибок
+    if any(pattern in reply_lower for pattern in error_patterns):
+        return True
+    
+    # Проверяем, не является ли ответ слишком коротким (меньше 10 символов обычно ошибка)
+    if len(reply_text.strip()) < 10:
+        return True
+    
+    return False
 
 
 def _send_airforce_request(
