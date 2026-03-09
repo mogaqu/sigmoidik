@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2025 sprowii
+﻿# Copyright (c) 2026 mogaqu
 PRIVACY_POLICY_TEXT = """
 <b>Политика Конфиденциальности для бота "Сигмоида"</b>
 

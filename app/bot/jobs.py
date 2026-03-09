@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2025 sprowii
+﻿# Copyright (c) 2026 mogaqu
 import asyncio
 import time
 

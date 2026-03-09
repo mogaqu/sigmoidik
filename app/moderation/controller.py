@@ -1,4 +1,4 @@
-# Copyright (c) 2025 sprowii
+# Copyright (c) 2026 mogaqu
 import time
 from dataclasses import dataclass
 from enum import Enum

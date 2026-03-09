@@ -1,4 +1,4 @@
-# Copyright (c) 2025 sprowii
+# Copyright (c) 2026 mogaqu
 """Модуль проверки прав администратора с кэшированием.
 
 Requirement 4.5: Non-admin users cannot use moderation commands

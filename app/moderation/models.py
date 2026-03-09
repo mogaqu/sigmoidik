@@ -1,4 +1,4 @@
-# Copyright (c) 2025 sprowii
+# Copyright (c) 2026 mogaqu
 """Модели данных для системы модерации."""
 from dataclasses import dataclass, field
 from typing import List, Optional

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 sprowii
+# Copyright (c) 2026 mogaqu
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
