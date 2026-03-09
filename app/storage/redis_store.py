@@ -332,6 +332,16 @@ def record_user_profile(chat_id: int, user: Optional[User]) -> bool:
     return False
 
 
+def is_duplicate_update(update_id: int) -> bool:
+    """Проверяет, обрабатывался ли уже этот update_id."""
+    key = f"processed_update:{update_id}"
+    if redis_client.exists(key):
+        return True
+    # Храним только последний час обработанных update_id
+    redis_client.setex(key, 3600, "1")
+    return False
+
+
 def _cleanup_game_indexes(pipeline, cutoff_timestamp: float, author_key: Optional[str]) -> None:
     pipeline.zremrangebyscore(GAME_LIST_KEY, "-inf", cutoff_timestamp)
     pipeline.expire(GAME_LIST_KEY, GAME_TTL_SECONDS)

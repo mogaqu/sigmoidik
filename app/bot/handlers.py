@@ -21,7 +21,6 @@ from app.storage.redis_store import create_login_code, persist_chat_data, record
 from app.utils.text import answer_size_prompt, sanitize_html_for_telegram, split_long_message, strip_html_tags, remove_ads
 from app.game.generator import GeneratedGame, generate_game
 from app.middleware.rate_limit import check_rate_limit, get_user_stats
-from app.middleware.cache import get_cached_response, cache_response, get_cache_stats
 from app.features.translator import translate_text, detect_language
 from app.features.summarizer import summarize_text, summarize_url
 
@@ -456,27 +455,14 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     cfg = get_cfg(chat_id)
     provider_override = cfg.llm_provider or None
     
-    # Проверяем кэш для текстовых запросов
-    cached_result = None
-    if len(prompt_parts) == 1 and isinstance(prompt_parts[0], str):
-        cached_result = get_cached_response(chat_id, prompt_parts[0], provider_override)
-    
-    if cached_result:
-        reply, model_used = cached_result
-        function_call = None
-        log.info(f"Using cached response for chat {chat_id}")
-    else:
-        try:
-            reply, model_used, function_call = await asyncio.get_running_loop().run_in_executor(
-                None, llm_request, chat_id, prompt_parts, provider_override
-            )
-            # Кэшируем ответ
-            if reply and len(prompt_parts) == 1 and isinstance(prompt_parts[0], str):
-                cache_response(chat_id, prompt_parts[0], reply, model_used, provider_override)
-        except Exception as exc:
-            log.exception(exc)
-            await update.message.reply_text("⚠️ Ошибка модели.")
-            return
+    try:
+        reply, model_used, function_call = await asyncio.get_running_loop().run_in_executor(
+            None, llm_request, chat_id, prompt_parts, provider_override
+        )
+    except Exception as exc:
+        log.exception(exc)
+        await update.message.reply_text("⚠️ Ошибка модели.")
+        return
     
     try:
         if function_call and function_call.name == "generate_image":
@@ -680,16 +666,12 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = update.effective_user.id
     user_stats = get_user_stats(user_id)
-    cache_stats = get_cache_stats()
     
     stats_text = (
         "📊 <b>Статистика</b>\n\n"
         f"<b>Твои запросы:</b>\n"
         f"• За последний час: {user_stats['requests']}\n"
         f"• Последний запрос: {user_stats['time_window']} сек назад\n\n"
-        f"<b>Кэш ответов:</b>\n"
-        f"• Размер: {cache_stats['size']}/{cache_stats['max_size']}\n"
-        f"• TTL: {cache_stats['ttl_seconds']} сек\n\n"
         f"<b>Лимиты:</b>\n"
         f"• 10 запросов в минуту\n"
         f"• 100 запросов в час"
