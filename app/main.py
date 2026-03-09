@@ -88,7 +88,6 @@ def build_application(token: str, bot_username: str):
         "import": handlers.importsettings_cmd,
         # Moderation log command
         "modlog": handlers.modlog_cmd,
-        "help": handlers.help_cmd,
     }
     for command, callback in command_handlers.items():
         app.add_handler(CommandHandler(command, callback))
