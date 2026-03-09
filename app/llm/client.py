@@ -1156,27 +1156,24 @@ def llm_generate_image(prompt: str, pollinations_model: Optional[str] = None) ->
     global current_key_idx
     
     if POLLINATIONS_ENABLED and POLLINATIONS_BASE_URL:
-        image_bytes, provider = _generate_image_via_pollinations(prompt, pollinations_model)
-        if image_bytes:
-            return image_bytes, provider
-
-    if not API_KEYS:
-        log.warning("No API keys available for Gemini image generation")
-        return None, "gemini"
-        
-    model_name = IMAGE_MODEL_NAME
-    for attempt in range(len(API_KEYS)):
-        key_idx = (current_key_idx + attempt) % len(API_KEYS)
-        try:
-            client = _get_client(key_idx)
-            image_bytes = _generate_image_via_gemini(client, model_name, prompt)
+        # Если модель не указана, пробуем все доступные модели по очереди
+        if not pollinations_model:
+            from app.config import POLLINATIONS_MODELS
+            for model in POLLINATIONS_MODELS:
+                log.info(f"Trying Pollinations model: {model}")
+                image_bytes, provider = _generate_image_via_pollinations(prompt, model)
+                if image_bytes:
+                    return image_bytes, provider
+                log.warning(f"Model {model} failed, trying next...")
+        else:
+            # Если модель указана пользователем, используем только её
+            image_bytes, provider = _generate_image_via_pollinations(prompt, pollinations_model)
             if image_bytes:
-                current_key_idx = key_idx
-                return image_bytes, model_name
-        except Exception as exc:
-            log.warning(f"Image generation failed on key {key_idx + 1}: {exc}")
-    
-    return None, model_name
+                return image_bytes, provider
+
+    # Fallback на Gemini отключен, так как Google нельзя использовать
+    log.warning("All Pollinations models failed to generate image")
+    return None, "pollinations"
 
 
 def _generate_image_via_pollinations(

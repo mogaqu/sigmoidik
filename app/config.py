@@ -88,7 +88,7 @@ MODELS: List[str] = [
     "gemini-2.5-flash-lite",
 ]
 
-IMAGE_MODEL_NAME = os.getenv("IMAGE_MODEL_NAME", "gemini-2.0-flash-preview-image")
+IMAGE_MODEL_NAME = os.getenv("IMAGE_MODEL_NAME", "gemini-2.0-flash-exp")
 
 OPENROUTER_API_KEYS = _load_openrouter_keys()
 OPENROUTER_MODELS: List[str] = [
@@ -174,7 +174,17 @@ if _pollinations_models_raw:
         if model.strip()
     ]
 else:
-    POLLINATIONS_MODELS = [POLLINATIONS_MODEL]
+    # Все доступные модели из Pollinations API
+    POLLINATIONS_MODELS = [
+        "flux",           # Flux Schnell - 2.6K pollen, 0.001/img
+        "zimage",         # Z-Image Turbo - 1.3K pollen, 0.002/img
+        "flux-2-dev",     # FLUX.2 Dev (api.airforce) - 1K pollen, 0.001/img
+        "imagen-4",       # Imagen 4 (api.airforce) - 400 pollen, 0.0025/img
+        "grok-imagine",   # Grok Imagine (api.airforce) - 400 pollen, 0.0025/img
+        "klein",          # FLUX.2 Klein 4B - 100 pollen, 0.01/img
+        "gptimage",       # GPT Image 1 Mini - 80 pollen, 2.0/M
+        "klein-large",    # FLUX.2 Klein 9B - 75 pollen, 0.015/img
+    ]
 
 POLLINATIONS_WIDTH = int(os.getenv("POLLINATIONS_WIDTH", "1024"))
 POLLINATIONS_HEIGHT = int(os.getenv("POLLINATIONS_HEIGHT", "1024"))
