@@ -25,6 +25,10 @@ from app.config import (
     OPENROUTER_SITE_NAME,
     OPENROUTER_SITE_URL,
     OPENROUTER_TIMEOUT,
+    AIRFORCE_API_KEYS,
+    AIRFORCE_MODELS,
+    AIRFORCE_BASE_URL,
+    AIRFORCE_TIMEOUT,
     POLLINATIONS_API_KEY,
     POLLINATIONS_BASE_URL,
     POLLINATIONS_ENABLED,
@@ -54,6 +58,11 @@ current_or_model_idx = 0
 available_or_models: List[str] = OPENROUTER_MODELS.copy() if OPENROUTER_MODELS else []
 last_or_check_ts: float = 0.0
 
+current_airforce_key_idx = 0
+current_airforce_model_idx = 0
+available_airforce_models: List[str] = AIRFORCE_MODELS.copy() if AIRFORCE_MODELS else []
+last_airforce_check_ts: float = 0.0
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 SERVICE_UNAVAILABLE_DELAY = 2.0
 MODEL_CHECK_INTERVAL = 3600.0
@@ -78,6 +87,8 @@ def _normalize_provider_name(value: Optional[str]) -> Optional[str]:
         return "gemini" if API_KEYS else None
     if normalized == "openrouter":
         return "openrouter" if OPENROUTER_API_KEYS and OPENROUTER_MODELS else None
+    if normalized == "airforce":
+        return "airforce" if AIRFORCE_API_KEYS and AIRFORCE_MODELS else None
     if normalized == "pollinations":
         return "pollinations" if POLLINATIONS_TEXT_MODELS and POLLINATIONS_TEXT_BASE_URL else None
     return None
@@ -87,10 +98,10 @@ def _provider_sequence(preferred: Optional[str] = None) -> List[str]:
     normalized_preferred = _normalize_provider_name(preferred)
     ordered_config = [
         provider for provider in LLM_PROVIDER_ORDER 
-        if provider in {"gemini", "openrouter", "pollinations"}
+        if provider in {"gemini", "openrouter", "airforce", "pollinations"}
     ]
     if not ordered_config:
-        ordered_config = ["gemini", "openrouter", "pollinations"]
+        ordered_config = ["gemini", "openrouter", "airforce", "pollinations"]
 
     if normalized_preferred:
         ordered = [normalized_preferred] + [p for p in ordered_config if p != normalized_preferred]
@@ -103,6 +114,8 @@ def _provider_sequence(preferred: Optional[str] = None) -> List[str]:
             sequence.append("gemini")
         elif provider == "openrouter" and OPENROUTER_API_KEYS and OPENROUTER_MODELS:
             sequence.append("openrouter")
+        elif provider == "airforce" and AIRFORCE_API_KEYS and AIRFORCE_MODELS:
+            sequence.append("airforce")
         elif provider == "pollinations" and POLLINATIONS_TEXT_MODELS and POLLINATIONS_TEXT_BASE_URL:
             sequence.append("pollinations")
     
@@ -111,6 +124,8 @@ def _provider_sequence(preferred: Optional[str] = None) -> List[str]:
             sequence.append("gemini")
         if OPENROUTER_API_KEYS and OPENROUTER_MODELS:
             sequence.append("openrouter")
+        if AIRFORCE_API_KEYS and AIRFORCE_MODELS:
+            sequence.append("airforce")
         if POLLINATIONS_TEXT_MODELS and POLLINATIONS_TEXT_BASE_URL:
             sequence.append("pollinations")
     
@@ -848,6 +863,133 @@ def _send_pollinations_request(
     return None
 
 
+def _airforce_model_for_chat(chat_id: Optional[int]) -> Optional[str]:
+    """Возвращает предпочтительную модель Airforce для пользователя, если она задана и валидна."""
+    if chat_id is None:
+        return None
+
+    cfg = configs.get(chat_id)
+    if cfg:
+        preferred_model = getattr(cfg, "airforce_model", None)
+        if preferred_model and preferred_model in AIRFORCE_MODELS:
+            return preferred_model
+
+    return None
+
+
+def _send_airforce_request(
+    chat_id: Optional[int],
+    stored_history: List[Dict[str, Any]],
+    user_message: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    log.info("Attempting Airforce request")
+    global current_airforce_key_idx, current_airforce_model_idx
+
+    if not AIRFORCE_API_KEYS or not available_airforce_models:
+        log.warning("No Airforce API keys or available models")
+        return None
+
+    if not _can_use_text_only_provider(user_message):
+        log.info("Message contains non-text content, skipping Airforce")
+        return None
+
+    user_text = _parts_to_text(user_message.get("parts", []))
+    messages = _prepare_openai_compatible_messages(stored_history, user_text)
+
+    # Логика выбора модели
+    models_to_iterate: List[str]
+    preferred_model = _airforce_model_for_chat(chat_id)
+
+    if preferred_model:
+        models_to_iterate = [preferred_model]
+        log.info(f"Using user-preferred Airforce model for chat {chat_id}: {preferred_model}")
+    else:
+        # Стандартная ротация (round-robin), если модель не выбрана
+        models_to_iterate = [
+            available_airforce_models[(current_airforce_model_idx + i) % len(available_airforce_models)]
+            for i in range(len(available_airforce_models))
+        ]
+
+    for model_name in models_to_iterate:
+        for key_attempt in range(len(AIRFORCE_API_KEYS)):
+            key_idx = (current_airforce_key_idx + key_attempt) % len(AIRFORCE_API_KEYS)
+            api_key = AIRFORCE_API_KEYS[key_idx]
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            payload = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": 0.7,
+                "stream": False,
+            }
+
+            try:
+                response = requests.post(
+                    AIRFORCE_BASE_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=AIRFORCE_TIMEOUT,
+                )
+
+                if response.status_code in {429, 503}:
+                    log.warning(
+                        "Airforce returned %s for model %s (key %s). Trying next key...",
+                        response.status_code,
+                        model_name,
+                        key_idx + 1,
+                    )
+                    time.sleep(SERVICE_UNAVAILABLE_DELAY)
+                    continue
+
+                response.raise_for_status()
+                data = response.json()
+                choices = data.get("choices") or []
+
+                if not choices:
+                    log.warning("Airforce response contains no choices (model %s, key %s). Trying next key...", model_name, key_idx + 1)
+                    continue
+
+                message = choices[0].get("message") or {}
+                reply_text = _openai_content_to_text(message.get("content"))
+
+                if not reply_text:
+                    log.warning("Airforce response has empty content (model %s, key %s). Trying next key...", model_name, key_idx + 1)
+                    continue
+
+                # Обновляем глобальные индексы
+                current_airforce_key_idx = key_idx
+                # Обновляем индекс модели, только если это была ротация, а не выбор пользователя
+                if not preferred_model:
+                    try:
+                        successful_model_index = available_airforce_models.index(model_name)
+                        current_airforce_model_idx = successful_model_index
+                    except ValueError:
+                        # Модель не найдена в списке, ничего не делаем с индексом
+                        pass
+
+                return {
+                    "parts": [{"text": reply_text}],
+                    "reply_text": reply_text,
+                    "fn_call": None,
+                    "model_name": f"airforce:{model_name}",
+                    "provider": "airforce",
+                }
+
+            except requests.RequestException as exc:
+                log.warning("Airforce request failed (model %s, key %s): %s", model_name, key_idx + 1, exc)
+                time.sleep(SERVICE_UNAVAILABLE_DELAY)
+                continue
+            except ValueError as exc:
+                log.warning("Airforce response error (model %s): %s", model_name, exc)
+                continue
+
+    return None
+
+
 def _summarize_history(chat_id: int, provider_override: Optional[str] = None) -> None:
     chat_history = history.get(chat_id, [])
     if len(chat_history) <= MAX_HISTORY:
@@ -876,6 +1018,8 @@ def _summarize_history(chat_id: int, provider_override: Optional[str] = None) ->
                 result = _send_gemini_request([], summary_message)
             elif provider == "openrouter":
                 result = _send_openrouter_request(chat_id, [], summary_message)
+            elif provider == "airforce":
+                result = _send_airforce_request(chat_id, [], summary_message)
             elif provider == "pollinations":
                 result = _send_pollinations_request(chat_id, [], summary_message)
 
@@ -924,6 +1068,8 @@ def llm_request(
                 result = _send_gemini_request(stored_history, user_message)
             elif provider == "openrouter":
                 result = _send_openrouter_request(chat_id, stored_history, user_message)
+            elif provider == "airforce":
+                result = _send_airforce_request(chat_id, stored_history, user_message)
             elif provider == "pollinations":
                 result = _send_pollinations_request(chat_id, stored_history, user_message)
         except Exception as exc:
@@ -1215,3 +1361,70 @@ def check_openrouter_models() -> List[str]:
         log.warning("Could not verify OpenRouter models, using all configured models")
     
     return available_or_models
+
+
+def check_airforce_models() -> List[str]:
+    """Проверяет доступность моделей Airforce, отправляя тестовый запрос."""
+    global available_airforce_models, last_airforce_check_ts
+    
+    if not AIRFORCE_API_KEYS or not AIRFORCE_MODELS:
+        log.debug("Airforce not configured, skipping check")
+        return []
+    
+    current_time = time.time()
+    if current_time - last_airforce_check_ts < MODEL_CHECK_INTERVAL:
+        return available_airforce_models
+    
+    log.info("Checking available Airforce models...")
+    working_models: List[str] = []
+    
+    test_messages = [{"role": "user", "content": "Привет"}]
+    
+    for model_name in AIRFORCE_MODELS:
+        model_found = False
+        for key_idx in range(len(AIRFORCE_API_KEYS)):
+            if model_found:
+                break
+            try:
+                api_key = AIRFORCE_API_KEYS[key_idx]
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                }
+                
+                payload = {
+                    "model": model_name,
+                    "messages": test_messages,
+                    "temperature": 0.7,
+                    "stream": False,
+                }
+                
+                response = requests.post(
+                    AIRFORCE_BASE_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("choices"):
+                        working_models.append(model_name)
+                        log.info(f"Airforce model {model_name} is available with key #{key_idx + 1}")
+                        model_found = True
+                else:
+                    log.debug(f"Airforce model {model_name} test failed with key #{key_idx + 1}: HTTP {response.status_code}")
+                    
+            except Exception as e:
+                log.debug(f"Airforce model {model_name} test failed with key #{key_idx + 1}: {e}")
+                continue
+    
+    if working_models:
+        available_airforce_models = working_models
+        last_airforce_check_ts = current_time
+        log.info(f"Available Airforce models: {available_airforce_models}")
+    else:
+        available_airforce_models = AIRFORCE_MODELS.copy()
+        log.warning("Could not verify Airforce models, using all configured models")
+    
+    return available_airforce_models

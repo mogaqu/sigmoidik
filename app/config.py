@@ -63,6 +63,18 @@ def _load_openrouter_keys() -> List[str]:
     return keys
 
 
+def _load_airforce_keys() -> List[str]:
+    keys: List[str] = []
+    idx = 1
+    while True:
+        key = os.getenv(f"AIRFORCE_API_KEY_{idx}")
+        if not key:
+            break
+        keys.append(key)
+        idx += 1
+    return keys
+
+
 API_KEYS = _load_api_keys()
 if not API_KEYS:
     raise RuntimeError(
@@ -91,9 +103,21 @@ OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL")
 OPENROUTER_SITE_NAME = os.getenv("OPENROUTER_SITE_NAME")
 OPENROUTER_TIMEOUT = float(os.getenv("OPENROUTER_TIMEOUT", "45"))
 
+AIRFORCE_API_KEYS = _load_airforce_keys()
+AIRFORCE_MODELS: List[str] = [
+    model.strip()
+    for model in os.getenv(
+        "AIRFORCE_MODELS",
+        "claude-sonnet-4.6",
+    ).split(";")
+    if model.strip()
+]
+AIRFORCE_BASE_URL = os.getenv("AIRFORCE_BASE_URL", "https://api.airforce/v1/chat/completions")
+AIRFORCE_TIMEOUT = float(os.getenv("AIRFORCE_TIMEOUT", "60"))
+
 LLM_PROVIDER_ORDER: List[str] = [
     provider.strip().lower()
-    for provider in os.getenv("LLM_PROVIDER_ORDER", "gemini,openrouter,pollinations").split(",")
+    for provider in os.getenv("LLM_PROVIDER_ORDER", "gemini,openrouter,airforce,pollinations").split(",")
     if provider.strip()
 ]
 
@@ -198,10 +222,12 @@ SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "sig_session")
 # Диагностика
 log.info(f"Loaded {len(API_KEYS)} Gemini API keys")
 log.info(f"Loaded {len(OPENROUTER_API_KEYS)} OpenRouter API keys")
+log.info(f"Loaded {len(AIRFORCE_API_KEYS)} Airforce API keys")
 log.info(f"Pollinations enabled: {POLLINATIONS_ENABLED}")
 log.info(f"Pollinations authenticated: {bool(POLLINATIONS_API_KEY)}")
 log.info(f"Pollinations safe mode (images): {POLLINATIONS_SAFE_MODE}")
 log.info(f"LLM provider order: {LLM_PROVIDER_ORDER}")
 log.info(f"Gemini models: {MODELS}")
 log.info(f"OpenRouter models: {OPENROUTER_MODELS}")
+log.info(f"Airforce models: {AIRFORCE_MODELS}")
 log.info(f"Pollinations text models: {POLLINATIONS_TEXT_MODELS}, default: {POLLINATIONS_TEXT_DEFAULT}")
