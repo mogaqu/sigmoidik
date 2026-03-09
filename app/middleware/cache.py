@@ -16,11 +16,11 @@ CLEANUP_INTERVAL = 600  # Очистка каждые 10 минут
 _last_cleanup = time.time()
 
 
-def _make_cache_key(chat_id: int, prompt: str) -> str:
+def _make_cache_key(chat_id: int, prompt: str, provider: Optional[str] = None) -> str:
     """Создает хэш для кэша."""
     # Нормализуем промпт (убираем лишние пробелы)
     normalized = " ".join(prompt.lower().split())
-    key_str = f"{chat_id}:{normalized}"
+    key_str = f"{chat_id}:{provider or 'default'}:{normalized}"
     return hashlib.sha256(key_str.encode()).hexdigest()[:16]
 
 
@@ -50,7 +50,7 @@ def _cleanup_cache():
         log.debug(f"Cleaned up {len(to_remove)} cache entries")
 
 
-def get_cached_response(chat_id: int, prompt: str) -> Optional[Tuple[str, str]]:
+def get_cached_response(chat_id: int, prompt: str, provider: Optional[str] = None) -> Optional[Tuple[str, str]]:
     """
     Получает закэшированный ответ.
     
@@ -59,7 +59,7 @@ def get_cached_response(chat_id: int, prompt: str) -> Optional[Tuple[str, str]]:
     """
     _cleanup_cache()
     
-    key = _make_cache_key(chat_id, prompt)
+    key = _make_cache_key(chat_id, prompt, provider)
     
     if key not in _cache:
         return None
@@ -75,11 +75,11 @@ def get_cached_response(chat_id: int, prompt: str) -> Optional[Tuple[str, str]]:
     return response, model
 
 
-def cache_response(chat_id: int, prompt: str, response: str, model: str):
+def cache_response(chat_id: int, prompt: str, response: str, model: str, provider: Optional[str] = None):
     """Сохраняет ответ в кэш."""
     _cleanup_cache()
     
-    key = _make_cache_key(chat_id, prompt)
+    key = _make_cache_key(chat_id, prompt, provider)
     _cache[key] = (response, model, time.time())
     log.debug(f"Cached response for chat {chat_id}, cache size: {len(_cache)}")
 

@@ -18,7 +18,7 @@ from app.security.data_protection import safe_log_user, pseudonymize_id, pseudon
 from app.security.privacy import PRIVACY_POLICY_TEXT
 from app.state import ChatConfig, configs, history
 from app.storage.redis_store import create_login_code, persist_chat_data, record_user_profile, redis_client, user_profiles
-from app.utils.text import answer_size_prompt, sanitize_html_for_telegram, split_long_message, strip_html_tags
+from app.utils.text import answer_size_prompt, sanitize_html_for_telegram, split_long_message, strip_html_tags, remove_ads
 from app.game.generator import GeneratedGame, generate_game
 from app.middleware.rate_limit import check_rate_limit, get_user_stats
 from app.middleware.cache import get_cached_response, cache_response, get_cache_stats
@@ -459,7 +459,7 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     # Проверяем кэш для текстовых запросов
     cached_result = None
     if len(prompt_parts) == 1 and isinstance(prompt_parts[0], str):
-        cached_result = get_cached_response(chat_id, prompt_parts[0])
+        cached_result = get_cached_response(chat_id, prompt_parts[0], provider_override)
     
     if cached_result:
         reply, model_used = cached_result
@@ -472,7 +472,7 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             )
             # Кэшируем ответ
             if reply and len(prompt_parts) == 1 and isinstance(prompt_parts[0], str):
-                cache_response(chat_id, prompt_parts[0], reply, model_used)
+                cache_response(chat_id, prompt_parts[0], reply, model_used, provider_override)
         except Exception as exc:
             log.exception(exc)
             await update.message.reply_text("⚠️ Ошибка модели.")
@@ -485,7 +485,7 @@ async def send_bot_response(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         elif reply:
             model_display = model_used.replace("gemini-", "").replace("-latest", "").title()
             # Санитизация HTML для защиты от XSS при выводе ответа LLM
-            safe_reply = sanitize_html_for_telegram(reply)
+            safe_reply = sanitize_html_for_telegram(remove_ads(reply))
             full_reply = f"<b>{model_display}</b>\n\n{safe_reply}"
             for chunk in split_long_message(full_reply):
                 try:

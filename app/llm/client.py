@@ -943,6 +943,8 @@ def _send_airforce_request(
             for i in range(len(available_airforce_models))
         ]
 
+    log.info(f"Airforce: trying {len(AIRFORCE_API_KEYS)} keys for models: {models_to_iterate}")
+
     for model_name in models_to_iterate:
         for key_attempt in range(len(AIRFORCE_API_KEYS)):
             key_idx = (current_airforce_key_idx + key_attempt) % len(AIRFORCE_API_KEYS)
@@ -961,12 +963,15 @@ def _send_airforce_request(
             }
 
             try:
+                log.info(f"Airforce: trying model {model_name} with key #{key_idx + 1}")
                 response = requests.post(
                     AIRFORCE_BASE_URL,
                     json=payload,
                     headers=headers,
                     timeout=AIRFORCE_TIMEOUT,
                 )
+
+                log.info(f"Airforce response status: {response.status_code}")
 
                 if response.status_code in {429, 503}:
                     log.warning(
@@ -988,6 +993,8 @@ def _send_airforce_request(
 
                 message = choices[0].get("message") or {}
                 reply_text = _openai_content_to_text(message.get("content"))
+
+                log.info(f"Airforce reply preview: '{reply_text[:100] if reply_text else '(empty)'}'")
 
                 if not reply_text:
                     log.warning("Airforce response has empty content (model %s, key %s). Trying next key...", model_name, key_idx + 1)
@@ -1015,6 +1022,7 @@ def _send_airforce_request(
                         # Модель не найдена в списке, ничего не делаем с индексом
                         pass
 
+                log.info(f"Airforce SUCCESS with model {model_name}, key #{key_idx + 1}")
                 return {
                     "parts": [{"text": reply_text}],
                     "reply_text": reply_text,
@@ -1031,6 +1039,7 @@ def _send_airforce_request(
                 log.warning("Airforce response error (model %s): %s", model_name, exc)
                 continue
 
+    log.warning(f"Airforce: all {len(AIRFORCE_API_KEYS)} keys exhausted for all models, switching to next provider")
     return None
 
 

@@ -7,6 +7,18 @@ def strip_html_tags(text: str) -> str:
     return re.sub(clean, "", text)
 
 
+def remove_ads(text: str) -> str:
+    """Удаляет известные рекламные сообщения."""
+    ad_patterns = [
+        r"Need proxies cheaper than the market\?",
+        r"https://op\.wtf",
+        r"discord\.gg/airforce",
+    ]
+    for pattern in ad_patterns:
+        text = re.sub(pattern, "", text, flags=re.I)
+    return text.strip()
+
+
 def sanitize_html_for_telegram(text: str) -> str:
     """Санитизирует HTML для безопасной отправки в Telegram (parse_mode=HTML).
 
@@ -57,5 +69,3 @@ def split_long_message(text: str, max_length: int = 4096) -> List[str]:
     if current:
         parts.append(current.strip())
     return parts
-
-
