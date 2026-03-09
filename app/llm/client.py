@@ -877,6 +877,25 @@ def _airforce_model_for_chat(chat_id: Optional[int]) -> Optional[str]:
     return None
 
 
+def _is_airforce_error_response(reply_text: str) -> bool:
+    """Проверяет, является ли ответ Airforce сообщением об ошибке."""
+    if not reply_text:
+        return True
+    
+    error_patterns = [
+        "ratelimit exceeded",
+        "rate limit exceeded",
+        "please join:",
+        "discord.gg/airforce",
+        "error:",
+        "service unavailable",
+        "too many requests",
+    ]
+    
+    reply_lower = reply_text.lower()
+    return any(pattern in reply_lower for pattern in error_patterns)
+
+
 def _send_airforce_request(
     chat_id: Optional[int],
     stored_history: List[Dict[str, Any]],
@@ -958,6 +977,17 @@ def _send_airforce_request(
 
                 if not reply_text:
                     log.warning("Airforce response has empty content (model %s, key %s). Trying next key...", model_name, key_idx + 1)
+                    continue
+
+                # Проверяем, не является ли ответ сообщением об ошибке (например "Ratelimit Exceeded!")
+                if _is_airforce_error_response(reply_text):
+                    log.warning(
+                        "Airforce returned error message: '%s' (model %s, key %s). Trying next key...",
+                        reply_text[:100],
+                        model_name,
+                        key_idx + 1,
+                    )
+                    time.sleep(SERVICE_UNAVAILABLE_DELAY)
                     continue
 
                 # Обновляем глобальные индексы
