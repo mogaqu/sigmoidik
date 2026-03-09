@@ -537,9 +537,10 @@ def _prioritize_models(models: List[str]) -> List[str]:
     """Переупорядочивает модели, чтобы современные модели были первыми."""
     # Приоритизируем современные модели, если они есть
     priority_order = [
-        "gemini-3.1-flash-preview",
         "gemini-3.0-flash-lite-preview",
+        "gemini-3.1-flash-preview",
         "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
     ]
     
     prioritized = []

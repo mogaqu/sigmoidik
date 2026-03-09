@@ -109,7 +109,7 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 2px solid rgba(148, 163, 184, 0.28);
+    border: 2px solid rgba(222, 226, 230, 0.28);
     border-top-color: var(--accent);
     transform: translateY(-50%);
     animation: spin 0.85s linear infinite;
@@ -123,13 +123,10 @@ body {
     position: relative;
     flex: 1;
     min-height: min(70vh, 640px);
-    border-radius: 24px;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    background:
-        radial-gradient(circle at 20% 20%, rgba(140, 140, 255, 0.18), transparent 60%),
-        radial-gradient(circle at 80% 80%, rgba(192, 132, 252, 0.18), transparent 60%),
-        rgba(10, 10, 10, 0.9);
-    box-shadow: 0 40px 90px rgba(0, 0, 0, 0.75);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-strong);
     display: flex;
     align-items: stretch;
     justify-content: center;
@@ -144,7 +141,7 @@ body {
     font-size: 0.7rem;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.6);
+    color: var(--text-secondary);
     z-index: 2;
 }
 
@@ -153,7 +150,7 @@ body {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(13, 110, 253, 0.08);
     pointer-events: none;
 }
 
@@ -164,7 +161,7 @@ body {
     height: 100%;
     border: none;
     border-radius: inherit;
-    background: #020617;
+    background: var(--bg-card);
 }
 
 .sandbox-footer {
