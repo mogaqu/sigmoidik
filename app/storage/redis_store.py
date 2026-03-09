@@ -126,7 +126,12 @@ def load_data():
     try:
         loaded_history: Dict[int, List[Dict[str, Any]]] = {}
         for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{HISTORY_KEY_PREFIX}*")):
-            chat_id_part = key.split(":", 1)[1]
+            key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+            parts = key_str.split(":", 1)
+            if len(parts) < 2:
+                log.warning(f"Пропускаем некорректный ключ истории: {key_str}")
+                continue
+            chat_id_part = parts[1]
             raw_value = redis_client.get(key)
             if not raw_value:
                 continue
@@ -164,7 +169,12 @@ def load_data():
     try:
         loaded_configs: Dict[int, ChatConfig] = {}
         for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{CONFIG_KEY_PREFIX}*")):
-            chat_id_part = key.split(":", 1)[1]
+            key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+            parts = key_str.split(":", 1)
+            if len(parts) < 2:
+                log.warning(f"Пропускаем некорректный ключ конфигурации: {key_str}")
+                continue
+            chat_id_part = parts[1]
             raw_value = redis_client.get(key)
             if not raw_value:
                 continue
@@ -195,7 +205,12 @@ def load_data():
     try:
         loaded_users: Dict[int, Dict[int, Dict[str, Any]]] = {}
         for key in redis_client.scan_iter(match=_sanitize_redis_key(f"{USER_KEY_PREFIX}*")):
-            chat_id_part = key.split(":", 1)[1]
+            key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+            parts = key_str.split(":", 1)
+            if len(parts) < 2:
+                log.warning(f"Пропускаем некорректный ключ профиля: {key_str}")
+                continue
+            chat_id_part = parts[1]
             raw_value = redis_client.get(key)
             if not raw_value:
                 continue

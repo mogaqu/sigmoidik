@@ -83,7 +83,7 @@ OPENROUTER_MODELS: List[str] = [
     model.strip()
     for model in os.getenv(
         "OPENROUTER_MODELS",
-        "z-ai/glm-4.5-air:free,arcee-ai/trinity-large-preview:free,stepfun/step-3.5-flash:free,nvidia/nemotron-3-nano-30b-a3b:free,qwen/qwen3-vl-235b-a22b-thinking",
+        "z-ai/glm-4.5-air:free;arcee-ai/trinity-large-preview:free;stepfun/step-3.5-flash:free;nvidia/nemotron-3-nano-30b-a3b:free;qwen/qwen3-vl-235b-a22b-thinking",
     ).split(";")
     if model.strip()
 ]
