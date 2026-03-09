@@ -1159,11 +1159,16 @@ def llm_generate_image(prompt: str, pollinations_model: Optional[str] = None) ->
         # Если модель не указана, пробуем все доступные модели по очереди
         if not pollinations_model:
             from app.config import POLLINATIONS_MODELS
-            for model in POLLINATIONS_MODELS:
-                log.info(f"Trying Pollinations model: {model}")
+            for idx, model in enumerate(POLLINATIONS_MODELS):
+                log.info(f"Trying Pollinations model: {model} ({idx + 1}/{len(POLLINATIONS_MODELS)})")
                 image_bytes, provider = _generate_image_via_pollinations(prompt, model)
                 if image_bytes:
                     return image_bytes, provider
+                
+                # Небольшая задержка между попытками, чтобы не спамить API
+                if idx < len(POLLINATIONS_MODELS) - 1:
+                    time.sleep(0.5)
+                    
                 log.warning(f"Model {model} failed, trying next...")
         else:
             # Если модель указана пользователем, используем только её
@@ -1171,8 +1176,8 @@ def llm_generate_image(prompt: str, pollinations_model: Optional[str] = None) ->
             if image_bytes:
                 return image_bytes, provider
 
-    # Fallback на Gemini отключен, так как Google нельзя использовать
-    log.warning("All Pollinations models failed to generate image")
+    # Все модели не сработали
+    log.error("All Pollinations models failed to generate image")
     return None, "pollinations"
 
 
@@ -1188,58 +1193,53 @@ def _generate_image_via_pollinations(
     # Удаляем потенциально опасные символы
     prompt = re.sub(r'[<>{}\\]', '', prompt)
     
-    seed_value = POLLINATIONS_SEED or str(random.randint(0, 1_000_000_000))
-    encoded_prompt = urllib.parse.quote_plus(prompt)
     model_name = model_override or POLLINATIONS_MODEL
     
+    # Новый API: https://gen.pollinations.ai/image/{prompt}
+    url = f"{POLLINATIONS_BASE_URL.rstrip('/')}/{urllib.parse.quote(prompt)}"
+    
+    # Параметры запроса
     params = {
-        "width": str(POLLINATIONS_WIDTH),
-        "height": str(POLLINATIONS_HEIGHT),
-        "seed": seed_value,
         "model": model_name,
+        "width": POLLINATIONS_WIDTH,
+        "height": POLLINATIONS_HEIGHT,
     }
     
-    # Обновленная логика добавления параметров
+    # Seed (только для поддерживаемых моделей: flux, zimage, seedream, klein, seedance)
+    if model_name in ["flux", "zimage", "seedream", "seedream5", "seedream-pro", "klein", "klein-large", "seedance", "seedance-pro"]:
+        seed_value = POLLINATIONS_SEED or random.randint(0, 2147483647)
+        params["seed"] = seed_value
+    
+    # Safe mode
     if POLLINATIONS_SAFE_MODE:
-        params["safe"] = "true"
+        params["safe"] = True
     
-    if POLLINATIONS_PRIVATE_IMAGES: # <-- ДОБАВЛЕНО
-        params["private"] = "true"
-        
-    if POLLINATIONS_NO_LOGO: # <-- ДОБАВЛЕНО
-        params["nologo"] = "true"
-    
-    query = "&".join(f"{key}={urllib.parse.quote_plus(value)}" for key, value in params.items())
-    url = f"{POLLINATIONS_BASE_URL.rstrip('/')}/prompt/{encoded_prompt}?{query}"
-    
+    # Заголовки
     headers = {}
     if POLLINATIONS_API_KEY:
         headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
         log.debug("Using Pollinations API key for image generation")
     
     try:
-        log.info(f"Generating image via Pollinations with params: {params}") # Улучшенное логирование
+        log.info(f"Generating image via Pollinations: model={model_name}, size={params['width']}x{params['height']}")
         response = requests.get(
             url, 
+            params=params,
             headers=headers if headers else None,
             timeout=POLLINATIONS_TIMEOUT
         )
         response.raise_for_status()
         
         if response.content:
-            # Формируем имя провайдера с учетом всех флагов
-            provider_tags = [f"pollinations:{model_name}"]
-            if POLLINATIONS_SAFE_MODE: provider_tags.append("safe")
-            if POLLINATIONS_PRIVATE_IMAGES: provider_tags.append("private")
-            if POLLINATIONS_NO_LOGO: provider_tags.append("nologo")
-            provider_name = ":".join(provider_tags)
-            
+            provider_name = f"pollinations:{model_name}"
             log.info(f"Generated image via {provider_name}")
             return response.content, provider_name
         
         log.warning("Pollinations returned empty image content")
+    except requests.exceptions.HTTPError as exc:
+        log.warning(f"Pollinations HTTP error for model {model_name}: {exc.response.status_code} - {exc}")
     except Exception as exc:
-        log.warning(f"Pollinations image generation failed: {exc}")
+        log.warning(f"Pollinations image generation failed for model {model_name}: {exc}")
     
     return None, f"pollinations:{model_name}"
 

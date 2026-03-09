@@ -188,7 +188,7 @@ else:
 
 POLLINATIONS_WIDTH = int(os.getenv("POLLINATIONS_WIDTH", "1024"))
 POLLINATIONS_HEIGHT = int(os.getenv("POLLINATIONS_HEIGHT", "1024"))
-POLLINATIONS_BASE_URL = os.getenv("POLLINATIONS_BASE_URL", "https://image.pollinations.ai")
+POLLINATIONS_BASE_URL = os.getenv("POLLINATIONS_BASE_URL", "https://gen.pollinations.ai/image")
 POLLINATIONS_SEED = os.getenv("POLLINATIONS_SEED")
 POLLINATIONS_TIMEOUT = float(os.getenv("POLLINATIONS_TIMEOUT", "300"))
 POLLINATIONS_SAFE_MODE = os.getenv("POLLINATIONS_SAFE_MODE", "true").lower() in {"1", "true", "yes"}
