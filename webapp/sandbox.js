@@ -345,14 +345,10 @@ ${code}
  * - автозапускаем __SIGMOIDA_START__(root).
  */
 function buildFrameSrcDoc(gameCodeWrapped) {
-    // Более надежное экранирование для предотвращения инъекций
-    const escapedCode = gameCodeWrapped
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;');
-
+    // Экранируем только закрывающие теги script для предотвращения выхода из контекста
+    // Это сохраняет валидность JavaScript кода, но блокирует инъекции
+    const safeCode = gameCodeWrapped.replace(/<\/script>/gi, '<\\/script>');
+    
     // Генерируем nonce для CSP
     const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
         .map(b => b.toString(16).padStart(2, '0'))
@@ -390,7 +386,7 @@ function buildFrameSrcDoc(gameCodeWrapped) {
     <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
     <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"></script>
     <script nonce="${nonce}">
-${escapedCode}
+${safeCode}
     </script>
     <script nonce="${nonce}">
         (function () {
