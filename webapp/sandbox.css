@@ -105,10 +105,9 @@ body {
 
 .sandbox-stage {
     position: relative;
-    flex: 1;
-    min-height: 60vh;
-    height: calc(100vh - 280px);
-    max-height: 800px;
+    width: 100%;
+    max-width: 960px;
+    aspect-ratio: 16 / 9; /* десктопное соотношение сторон */
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -119,22 +118,20 @@ body {
     overflow: hidden;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .sandbox-stage {
-        min-height: 50vh;
-        height: calc(100vh - 320px);
-        max-height: none;
-        border-radius: 16px;
+        max-width: 100%;
+        aspect-ratio: 4 / 3;
+        border-radius: 18px;
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
     .sandbox-stage {
-        min-height: 45vh;
-        height: calc(100vh - 360px);
-        border-radius: 12px;
+        aspect-ratio: 9 / 16; /* более «вертикальное» окно на телефонах */
+        border-radius: 14px;
     }
-    
+
     .sandbox-stage::before {
         display: none;
     }
