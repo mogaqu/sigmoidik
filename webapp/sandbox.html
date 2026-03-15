@@ -17,30 +17,21 @@
         <header class="sandbox-header">
             <nav class="sandbox-nav">
                 <a class="button ghost back-button" href="/webapp/hub.html">← В хаб</a>
-                <span class="sandbox-brand">Сигмоида · Песочница</span>
+                <span class="sandbox-brand">Сигмоида</span>
             </nav>
-            <div class="sandbox-hero">
-                <h1>Игровая песочница</h1>
-                <p>Игры запускаются в изолированном окне: нейросеть пишет код, а браузер исполняет 2D или 3D сцену внутри безопасного iframe.</p>
-            </div>
         </header>
         <main class="sandbox-main">
-            <section class="panel sandbox-panel">
-                <div class="sandbox-status" id="status" role="status" aria-live="polite">Загружаем игру...</div>
-                <div class="sandbox-stage" aria-label="Игровое поле">
-                    <iframe
-                        id="game-frame"
-                        class="sandbox-frame"
-                        title="Игровая песочница"
-                        sandbox="allow-scripts"
-                        referrerpolicy="no-referrer"
-                    ></iframe>
-                </div>
-            </section>
+            <div class="sandbox-status" id="status" role="status" aria-live="polite">Загружаем игру...</div>
+            <div class="sandbox-stage" aria-label="Игровое поле">
+                <iframe
+                    id="game-frame"
+                    class="sandbox-frame"
+                    title="Игровая песочница"
+                    sandbox="allow-scripts"
+                    referrerpolicy="no-referrer"
+                ></iframe>
+            </div>
         </main>
-        <footer class="sandbox-footer">
-            <p>© 2026 mogaqu · Если игра не запускается, обнови страницу или сообщи о проблеме через бота.</p>
-        </footer>
     </div>
     <script src="/webapp/sandbox.js" type="module"></script>
 </body>

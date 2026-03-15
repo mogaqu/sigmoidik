@@ -10,15 +10,15 @@ body {
     z-index: 1;
     display: flex;
     flex-direction: column;
-    gap: 32px;
-    padding: 32px 16px 48px;
+    gap: 16px;
+    padding: 20px 12px 20px;
     min-height: 100vh;
 }
 
 .sandbox-header {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
     align-items: center;
     text-align: center;
 }
@@ -41,60 +41,43 @@ body {
     font-size: 0.85rem;
 }
 
-.sandbox-hero {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
-    max-width: 720px;
-}
-
-.sandbox-hero h1 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    font-size: clamp(2.4rem, 6vw, 3.6rem);
-    text-transform: uppercase;
-}
-
-.sandbox-hero p {
-    margin: 0;
-    color: var(--text-secondary);
-    line-height: 1.6;
+@media (max-width: 640px) {
+    .sandbox-nav {
+        justify-content: center;
+    }
+    
+    .sandbox-brand {
+        display: none;
+    }
 }
 
 .sandbox-main {
     flex: 1;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     width: 100%;
-}
-
-.sandbox-panel {
-    width: 100%;
-    max-width: 960px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 32px;
-}
-
-@media (max-width: 640px) {
-    .sandbox-panel {
-        padding: 24px;
-    }
-
-    .sandbox-nav {
-        justify-content: center;
-    }
+    gap: 12px;
+    padding: 0 8px;
 }
 
 .sandbox-status {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--text-secondary);
     min-height: 1.4em;
     letter-spacing: 0.04em;
+    padding: 8px 12px;
+    text-align: center;
+    background: var(--bg-panel);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+    .sandbox-status {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
 }
 
 .sandbox-status.loading {
@@ -123,7 +106,9 @@ body {
 .sandbox-stage {
     position: relative;
     flex: 1;
-    min-height: min(70vh, 640px);
+    min-height: 60vh;
+    height: calc(100vh - 280px);
+    max-height: 800px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -132,6 +117,27 @@ body {
     align-items: stretch;
     justify-content: center;
     overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .sandbox-stage {
+        min-height: 50vh;
+        height: calc(100vh - 320px);
+        max-height: none;
+        border-radius: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sandbox-stage {
+        min-height: 45vh;
+        height: calc(100vh - 360px);
+        border-radius: 12px;
+    }
+    
+    .sandbox-stage::before {
+        display: none;
+    }
 }
 
 .sandbox-stage::before {
