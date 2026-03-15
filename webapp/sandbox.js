@@ -345,17 +345,16 @@ ${code}
  * - автозапускаем __SIGMOIDA_START__(root).
  */
 function buildFrameSrcDoc(gameCodeWrapped) {
-    // Экранируем только закрывающие теги script для предотвращения выхода из контекста
-    // Это сохраняет валидность JavaScript кода, но блокирует инъекции
-    const safeCode = gameCodeWrapped.replace(/<\/script>/gi, '<\\/script>');
-    
     // Генерируем nonce для CSP
     const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-    return `
-<!DOCTYPE html>
+    // Экранируем только </script> чтобы предотвратить выход из контекста скрипта
+    // Замена на <\/script> валидна в JavaScript и предотвращает закрытие тега
+    const safeCode = gameCodeWrapped.replace(/<\/script>/gi, '<\\/script>');
+
+    return `<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
@@ -383,37 +382,35 @@ function buildFrameSrcDoc(gameCodeWrapped) {
 </head>
 <body>
     <div id="root"></div>
-    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
-    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"><\/script>
+    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"><\/script>
     <script nonce="${nonce}">
 ${safeCode}
-    </script>
+    <\/script>
     <script nonce="${nonce}">
-        (function () {
-            "use strict";
-            
-            // Дополнительная защита от prototype pollution
-            Object.freeze(Object.prototype);
-            Object.freeze(Array.prototype);
-            Object.freeze(Function.prototype);
-            
-            window.addEventListener("load", function () {
-                const root = document.getElementById("root");
-                if (!root || typeof window.__SIGMOIDA_START__ !== "function") {
-                    console.error("Инициализация игры невозможна: нет root или стартовой функции.");
-                    return;
-                }
-                try {
-                    window.__SIGMOIDA_START__(root);
-                } catch (err) {
-                    console.error("Ошибка при запуске игры:", err);
-                }
-            });
-        }());
-    </script>
+(function () {
+    "use strict";
+    
+    Object.freeze(Object.prototype);
+    Object.freeze(Array.prototype);
+    Object.freeze(Function.prototype);
+    
+    window.addEventListener("load", function () {
+        const root = document.getElementById("root");
+        if (!root || typeof window.__SIGMOIDA_START__ !== "function") {
+            console.error("Инициализация игры невозможна: нет root или стартовой функции.");
+            return;
+        }
+        try {
+            window.__SIGMOIDA_START__(root);
+        } catch (err) {
+            console.error("Ошибка при запуске игры:", err);
+        }
+    });
+}());
+    <\/script>
 </body>
-</html>
-`;
+</html>`;
 }
 
 async function bootstrap() {
