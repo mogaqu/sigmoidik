@@ -69,19 +69,102 @@ function getGameId() {
     return null;
 }
 
+/**
+ * Анализ сложности кода - заменяет простое ограничение по длине
+ * на умную проверку потенциально опасных паттернов.
+ */
+function analyzeCodeComplexity(code) {
+    const issues = [];
+    
+    // 1. Проверка на подозрительно длинный код (мягкий лимит)
+    if (code.length > 50000) {
+        issues.push({ type: "length", severity: "high", message: "Код слишком длинный (>50KB)" });
+    } else if (code.length > 25000) {
+        issues.push({ type: "length", severity: "medium", message: "Код очень длинный (>25KB)" });
+    }
+    
+    // 2. Подсчёт функций - слишком много может указывать на спам
+    const functionMatches = code.match(/function\s+\w+|const\s+\w+\s*=\s*(?:async\s+)?\(|=>\s*{/g);
+    const functionCount = functionMatches ? functionMatches.length : 0;
+    if (functionCount > 100) {
+        issues.push({ type: "function_count", severity: "high", message: `Слишком много функций (${functionCount})` });
+    } else if (functionCount > 50) {
+        issues.push({ type: "function_count", severity: "medium", message: `Много функций (${functionCount})` });
+    }
+    
+    // 3. Глубокая вложенность - потенциально проблемный код
+    const nestedIfMatches = code.match(/(?:if\s*\([^)]*\)\s*{[^}]*){4,}/g);
+    if (nestedIfMatches && nestedIfMatches.length > 3) {
+        issues.push({ type: "nesting", severity: "medium", message: "Обнаружена глубокая вложенность условий" });
+    }
+    
+    // 4. Подозрительные паттерны циклов
+    const loopPatterns = [
+        { pattern: /while\s*\(\s*true\s*\)/i, name: "бесконечный while(true)" },
+        { pattern: /while\s*\(\s*1\s*\)/i, name: "бесконечный while(1)" },
+        { pattern: /for\s*\(\s*;\s*;\s*\)/i, name: "бесконечный for(;;)" },
+    ];
+    
+    for (const { pattern, name } of loopPatterns) {
+        if (pattern.test(code)) {
+            issues.push({ type: "infinite_loop", severity: "high", message: `Обнаружен ${name} - может заморозить браузер` });
+        }
+    }
+    
+    // 5. Рекурсия - потенциально опасна для производительности
+    const recursionPatterns = [
+        /\bfunction\s+\w+\s*\([^)]*\)\s*\{[^}]*\1\s*\(/,
+        /const\s+(\w+)\s*=\s*(?:async\s+)?function\s*\([^)]*\)\s*\{[^}]*\1\s*\(/,
+    ];
+    const hasRecursion = recursionPatterns.some(p => p.test(code));
+    if (hasRecursion) {
+        issues.push({ type: "recursion", severity: "medium", message: "Обнаружена рекурсия - убедитесь, что есть условие выхода" });
+    }
+    
+    // 6. Динамическое создание функций в цикле - неэффективно
+    if (/for\s*\([^)]*\)\s*\{[^}]*new\s+Function/i.test(code)) {
+        issues.push({ type: "dynamic_function_in_loop", severity: "high", message: "Создание Function в цикле - серьёзная проблема производительности" });
+    }
+    
+    // 7. Подсчёт строк кода (без комментариев и пустых)
+    const codeLines = code.split('\n').filter(line => {
+        const trimmed = line.trim();
+        return trimmed.length > 0 && !trimmed.startsWith('//') && !trimmed.startsWith('/*');
+    }).length;
+    
+    if (codeLines > 2000) {
+        issues.push({ type: "line_count", severity: "medium", message: `Много строк кода (${codeLines})` });
+    }
+    
+    return issues;
+}
+
 function validateCodeSafety(code) {
     // Дополнительная проверка на попытки обойти regex
     const sanitizedCode = code.replace(/\s+/g, ' ');
-    const issues = FORBIDDEN_PATTERNS.filter(({ pattern }) => pattern.test(sanitizedCode));
+    const forbiddenIssues = FORBIDDEN_PATTERNS.filter(({ pattern }) => pattern.test(sanitizedCode));
     
-    // Блокируем подозрительно длинный код
-    if (code.length > 10000) {
-         throw new Error("Код слишком длинный.");
-    }
-
-    if (issues.length > 0) {
-        const reasonList = issues.map((item) => item.reason).join(", ");
+    // Проверка запрещённых паттернов (критично)
+    if (forbiddenIssues.length > 0) {
+        const reasonList = forbiddenIssues.map((item) => item.reason).join(", ");
         throw new Error(`Код отклонён политикой безопасности: ${reasonList}`);
+    }
+    
+    // Анализ сложности кода (предупреждения)
+    const complexityIssues = analyzeCodeComplexity(code);
+    
+    // Фильтруем только критичные проблемы
+    const criticalIssues = complexityIssues.filter(i => i.severity === "high");
+    
+    if (criticalIssues.length > 0) {
+        const reasonList = criticalIssues.map((item) => item.message).join("; ");
+        throw new Error(`Код отклонён из-за критичных проблем: ${reasonList}`);
+    }
+    
+    // Для средних проблем - предупреждаем, но пропускаем
+    const mediumIssues = complexityIssues.filter(i => i.severity === "medium");
+    if (mediumIssues.length > 0) {
+        console.warn("Предупреждения о сложности кода:", mediumIssues.map(i => i.message));
     }
 }
 

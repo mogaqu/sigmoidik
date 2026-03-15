@@ -55,10 +55,11 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: stretch;
     width: 100%;
     gap: 12px;
-    padding: 0 8px;
+    padding: 0 0 8px;
 }
 
 .sandbox-status {
@@ -105,9 +106,9 @@ body {
 
 .sandbox-stage {
     position: relative;
+    flex: 1;
     width: 100%;
-    max-width: 960px;
-    aspect-ratio: 16 / 9; /* десктопное соотношение сторон */
+    max-width: none;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--bg-card);
