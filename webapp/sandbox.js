@@ -64,6 +64,8 @@ function getGameId() {
         const value = params.get(key);
         if (value) return value.trim();
     }
+    // Показываем более понятное сообщение если нет game_id
+    console.error("Game ID not found in URL. Expected format: ?game_id=...");
     return null;
 }
 
@@ -84,12 +86,17 @@ function validateCodeSafety(code) {
 }
 
 async function fetchGamePayload(gameId) {
+    console.log(`Fetching game: ${gameId}`);
     const response = await fetch(`/api/games/${encodeURIComponent(gameId)}`, {
         headers: {
             "Accept": "application/json",
         },
     });
     if (!response.ok) {
+        console.error(`Game fetch failed: ${response.status} ${response.statusText}`);
+        if (response.status === 404) {
+            throw new Error(`Игра не найдена. Возможно, она была удалена или срок хранения истёк.`);
+        }
         throw new Error(`Не удалось загрузить игру (статус ${response.status}).`);
     }
     return response.json();
@@ -235,10 +242,7 @@ function buildGameWrapper(code) {
 
             // === ЗАГРУЗЧИКИ РЕСУРСОВ ===
             const textureLoader = new THREE.TextureLoader();
-            let gltfLoader = null;
-            if (THREE.GLTFLoader) {
-                gltfLoader = new THREE.GLTFLoader();
-            }
+            const gltfLoader = window.THREE.GLTFLoader ? new window.THREE.GLTFLoader() : null;
 
             const utils3D = {
                 ...commonUtils,
@@ -345,13 +349,7 @@ ${code}
  * - автозапускаем __SIGMOIDA_START__(root).
  */
 function buildFrameSrcDoc(gameCodeWrapped) {
-    // Генерируем nonce для CSP
-    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-
     // Экранируем только </script> чтобы предотвратить выход из контекста скрипта
-    // Замена на <\/script> валидна в JavaScript и предотвращает закрытие тега
     const safeCode = gameCodeWrapped.replace(/<\/script>/gi, '<\\/script>');
 
     return `<!DOCTYPE html>
@@ -359,9 +357,8 @@ function buildFrameSrcDoc(gameCodeWrapped) {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'nonce-${nonce}'; connect-src https://cdn.jsdelivr.net; img-src 'self' data:; frame-ancestors 'none';">
     <title>Sigmoida Game</title>
-    <style nonce="${nonce}">
+    <style>
         html, body {
             margin: 0;
             padding: 0;
@@ -382,12 +379,25 @@ function buildFrameSrcDoc(gameCodeWrapped) {
 </head>
 <body>
     <div id="root"></div>
-    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"><\/script>
-    <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/GLTFLoader.js"><\/script>
-    <script nonce="${nonce}">
-${safeCode}
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+        }
+    }
     <\/script>
-    <script nonce="${nonce}">
+    <script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Делаем THREE глобальным для совместимости
+window.THREE = THREE;
+window.THREE.GLTFLoader = GLTFLoader;
+
+${safeCode}
+
+// Автозапуск после загрузки
 (function () {
     "use strict";
     
@@ -395,18 +405,16 @@ ${safeCode}
     Object.freeze(Array.prototype);
     Object.freeze(Function.prototype);
     
-    window.addEventListener("load", function () {
-        const root = document.getElementById("root");
-        if (!root || typeof window.__SIGMOIDA_START__ !== "function") {
-            console.error("Инициализация игры невозможна: нет root или стартовой функции.");
-            return;
-        }
-        try {
-            window.__SIGMOIDA_START__(root);
-        } catch (err) {
-            console.error("Ошибка при запуске игры:", err);
-        }
-    });
+    const root = document.getElementById("root");
+    if (!root || typeof window.__SIGMOIDA_START__ !== "function") {
+        console.error("Инициализация игры невозможна: нет root или стартовой функции.");
+        return;
+    }
+    try {
+        window.__SIGMOIDA_START__(root);
+    } catch (err) {
+        console.error("Ошибка при запуске игры:", err);
+    }
 }());
     <\/script>
 </body>
@@ -421,7 +429,8 @@ async function bootstrap() {
 
     const gameId = getGameId();
     if (!gameId) {
-        setStatus("Не найден идентификатор игры в ссылке.", true);
+        setStatus("Не найден идентификатор игры в ссылке. Открой игру из хаба или используй прямую ссылку с game_id.", true);
+        console.error("Missing game_id parameter. URL should be: /webapp/sandbox.html?game_id=YOUR_GAME_ID");
         return;
     }
 
