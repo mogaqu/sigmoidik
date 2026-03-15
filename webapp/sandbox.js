@@ -389,10 +389,11 @@ function buildFrameSrcDoc(gameCodeWrapped) {
     <\/script>
     <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader as ThreeGLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Делаем THREE глобальным для совместимости (создаем расширяемую копию объекта модуля)
-window.THREE = { ...THREE, GLTFLoader };
+window.THREE = { ...THREE, GLTFLoader: ThreeGLTFLoader };
+window.GLTFLoader = ThreeGLTFLoader;
 
 ${safeCode}
 
