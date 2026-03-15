@@ -59,15 +59,15 @@ def add_security_headers(response):
     # Permissions Policy (отключаем ненужные API)
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     # Content Security Policy
-    # Используем строгий CSP без unsafe-inline
+    # Разрешаем unsafe-inline для работы srcdoc в песочнице и внешние ресурсы (Three.js, Fonts, Kaspersky)
     csp = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' https://fonts.googleapis.com; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://ff.kis.v2.scr.kaspersky-labs.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://ff.kis.v2.scr.kaspersky-labs.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: https:; "
-        "connect-src 'self'; "
-        "frame-src 'self'; "
+        "connect-src 'self' https://cdn.jsdelivr.net https://ff.kis.v2.scr.kaspersky-labs.com wss://ff.kis.v2.scr.kaspersky-labs.com; "
+        "frame-src 'self' data:; "
         "frame-ancestors 'self'; "
         "base-uri 'self'; "
         "form-action 'self'; "
